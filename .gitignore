@@ -1,0 +1,43 @@
+# ---- Rust/Cargo ----
+/target/
+**/target/
+debug/
+release/
+
+# Common compiled artifacts (usually live under target anyway)
+*.o
+*.a
+*.rlib
+*.rmeta
+*.dylib
+*.so
+*.dll
+*.bin
+*.d
+*.timestamp
+
+# ---- Logs & temp ----
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# ---- Env & local config (only if you actually use them) ----
+.env
+.env.*
+
+# ---- Editors/IDEs ----
+.vscode/
+.idea/
+
+# ---- OS junk ----
+.DS_Store
+Thumbs.db
+Icon?
+
+# ---- Optional: build/output dirs you might create ----
+/dist/
+/build/
+/out/
+/bin/
