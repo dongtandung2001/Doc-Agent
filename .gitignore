@@ -41,3 +41,13 @@ Icon?
 /build/
 /out/
 /bin/
+
+# Custom ignores
+.claude
+*.mermaid
+
+# Ignore all Markdown files
+*.md
+
+# But keep README.md
+!README.md
