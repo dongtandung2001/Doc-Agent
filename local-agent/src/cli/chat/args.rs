@@ -5,7 +5,7 @@ use std::process::ExitCode;
 use super::ChatSession;
 
 /// Arguments for the chat subcommand
-#[derive(Debug, Args, Default)]
+#[derive(Debug, Args)]
 pub struct ChatArgs {
     /// Initial message to send
     pub input: Option<String>,
@@ -15,8 +15,31 @@ pub struct ChatArgs {
     pub trust_all_tools: bool,
 
     /// API endpoint URL
-    #[arg(long, env = "CHAT_API_URL", default_value = "http://localhost:8080")]
+    #[arg(long, env = "CHAT_API_URL")]
     pub api_url: String,
+
+    /// API key for authentication
+    #[arg(long, env = "CHAT_API_KEY")]
+    pub api_key: String,
+
+    /// Model name to use
+    #[arg(long, env = "CHAT_MODEL")]
+    pub model: String,
+}
+
+impl Default for ChatArgs {
+    fn default() -> Self {
+        Self {
+            input: None,
+            trust_all_tools: false,
+            api_url: std::env::var("CHAT_API_URL")
+                .unwrap_or_else(|_| "https://api.token-ai.cn/v1/chat/completions".to_string()),
+            api_key: std::env::var("CHAT_API_KEY")
+                .unwrap_or_else(|_| String::new()),
+            model: std::env::var("CHAT_MODEL")
+                .unwrap_or_else(|_| "DeepSeek-V3".to_string()),
+        }
+    }
 }
 
 impl ChatArgs {

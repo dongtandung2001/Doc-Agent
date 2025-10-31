@@ -8,6 +8,12 @@ mod cli;
 mod util;
 
 fn main() -> Result<ExitCode> {
+    // Load .env file if it exists (ignore if not found)
+    match dotenvy::dotenv() {
+        Ok(path) => eprintln!("Loaded .env from: {:?}", path),
+        Err(e) => eprintln!("Warning: Could not load .env file: {}", e),
+    }
+
     // Initialize logging
     tracing_subscriber::fmt()
         .with_env_filter(

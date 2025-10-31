@@ -1,14 +1,13 @@
 use eyre::Result;
-use futures::StreamExt;
 use serde_json::json;
 use tokio::sync::broadcast;
-use tracing::{debug, error};
+use tracing::error;
 
 use super::args::ChatArgs;
 use super::cli::SlashCommand;
 use super::conversation::ConversationHistory;
 use super::input_source::InputSource;
-use super::parser::{parse_sse_stream, StreamEvent};
+use super::parser::parse_response;
 use super::state::{ChatState, ToolUse};
 use super::tool_manager::ToolManager;
 use crate::api::ApiClient;
@@ -35,6 +34,19 @@ pub struct ChatSession {
 
 impl ChatSession {
     pub async fn new(args: ChatArgs) -> Result<Self> {
+        // Debug: print the loaded configuration
+        eprintln!("Debug - API Configuration:");
+        eprintln!("  URL: {}", args.api_url);
+        eprintln!(
+            "  API Key: {}***",
+            if args.api_key.len() > 10 {
+                &args.api_key[..10]
+            } else {
+                "EMPTY"
+            }
+        );
+        eprintln!("  Model: {}", args.model);
+
         // Set up Ctrl+C handler
         let (ctrlc_tx, ctrlc_rx) = broadcast::channel(4);
         tokio::spawn(async move {
@@ -55,7 +67,7 @@ impl ChatSession {
             conversation: ConversationHistory::new(),
             input_source: InputSource::new()?,
             tool_manager: ToolManager::new(args.trust_all_tools),
-            api_client: ApiClient::new(&args.api_url)?,
+            api_client: ApiClient::new(&args.api_url, &args.api_key, &args.model)?,
             ctrlc_rx,
         })
     }
@@ -92,9 +104,13 @@ impl ChatSession {
         let result = match state {
             ChatState::PromptUser {
                 skip_printing_tools,
-            } => self.prompt_user(skip_printing_tools).await,
+            } => {
+                eprintln!("[DEBUG] State: PromptUser");
+                self.prompt_user(skip_printing_tools).await
+            }
 
             ChatState::HandleInput { input } => {
+                eprintln!("[DEBUG] State: HandleInput");
                 tokio::select! {
                     res = self.handle_input(input) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -105,6 +121,7 @@ impl ChatSession {
             }
 
             ChatState::HandleResponseStream { request } => {
+                eprintln!("[DEBUG] State: HandleResponseStream");
                 tokio::select! {
                     res = self.handle_response(request) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -114,9 +131,13 @@ impl ChatSession {
                 }
             }
 
-            ChatState::ValidateTools { tools } => self.validate_tools(tools).await,
+            ChatState::ValidateTools { tools } => {
+                eprintln!("[DEBUG] State: ValidateTools");
+                self.validate_tools(tools).await
+            }
 
             ChatState::ExecuteTools { tools } => {
+                eprintln!("[DEBUG] State: ExecuteTools");
                 tokio::select! {
                     res = self.execute_tools(tools) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -126,7 +147,10 @@ impl ChatSession {
                 }
             }
 
-            ChatState::Exit => return Ok(()),
+            ChatState::Exit => {
+                eprintln!("[DEBUG] State: Exit");
+                return Ok(());
+            }
         };
 
         // Transition to next state
@@ -181,65 +205,34 @@ impl ChatSession {
 
         let tools = self.tool_manager.tool_specs();
 
-        // Get raw response from API client
+        // eprintln!("[DEBUG] Sending request to API...");
+        // eprintln!("[DEBUG] Messages count: {}", messages.len());
+        // eprintln!("[DEBUG] Tools count: {}", tools.len());
+
+        // Get JSON response from API client
         let response = self.api_client.send_message(messages, tools).await?;
 
-        // Parse the SSE stream
-        let stream = parse_sse_stream(response);
-        futures::pin_mut!(stream);
+        // Parse response using parser module
+        let parsed = parse_response(&response)?;
 
-        let mut assistant_text = String::new();
-        let mut tools_to_execute = Vec::new();
-        let mut current_tool: Option<ToolUse> = None;
-        let mut tool_json_buffer = String::new();
-
-        while let Some(event_result) = stream.next().await {
-            match event_result? {
-                StreamEvent::ContentDelta { text } => {
-                    print!("{}", text);
-                    assistant_text.push_str(&text);
-                }
-                StreamEvent::ToolUseStart { id, name } => {
-                    if !assistant_text.is_empty() {
-                        println!(); // New line after text
-                    }
-                    println!("\n[Tool: {}]", name);
-                    current_tool = Some(ToolUse {
-                        id,
-                        name,
-                        args: json!({}),
-                    });
-                    tool_json_buffer.clear();
-                }
-                StreamEvent::ToolInputDelta { json } => {
-                    tool_json_buffer.push_str(&json);
-                }
-                StreamEvent::Done => {
-                    break;
-                }
-            }
-        }
-
-        // Finalize any pending tool
-        if let Some(mut tool) = current_tool.take() {
-            if !tool_json_buffer.is_empty() {
-                tool.args = serde_json::from_str(&tool_json_buffer)?;
-            }
-            tools_to_execute.push(tool);
+        // Display assistant text if present
+        if !parsed.assistant_text.is_empty() {
+            println!("{}", parsed.assistant_text);
         }
 
         println!(); // Final newline
 
         // Add assistant message if there was text
-        if !assistant_text.is_empty() {
+        if !parsed.assistant_text.is_empty() {
             self.conversation
-                .add(super::message::Message::assistant(assistant_text));
+                .add(super::message::Message::assistant(parsed.assistant_text));
         }
 
         // If tools were requested, validate and execute them
-        if !tools_to_execute.is_empty() {
+        if !parsed.tools_to_execute.is_empty() {
+            eprintln!("[DEBUG] Total tools to execute: {}", parsed.tools_to_execute.len());
             Ok(ChatState::ValidateTools {
-                tools: tools_to_execute,
+                tools: parsed.tools_to_execute,
             })
         } else {
             Ok(ChatState::PromptUser {
@@ -277,19 +270,10 @@ impl ChatSession {
     async fn execute_tools(&mut self, tools: Vec<ToolUse>) -> Result<ChatState> {
         println!("\nExecuting tools...");
 
-        // Add tool use messages to conversation
-        for tool in &tools {
-            self.conversation.add(super::message::Message::tool_use(
-                &tool.id,
-                &tool.name,
-                tool.args.clone(),
-            ));
-        }
-
-        // Execute tools
+        // Execute tools and get results
         let results = self.tool_manager.execute_all(tools).await;
 
-        // Add results to conversation
+        // Add tool results to conversation
         for result in results {
             self.conversation.add(result);
         }

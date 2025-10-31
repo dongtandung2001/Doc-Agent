@@ -17,16 +17,19 @@ impl ToolManager {
         }
     }
 
-    /// Get tool specs for API
+    /// Get tool specs for API (OpenAI function calling format)
     pub fn tool_specs(&self) -> Vec<serde_json::Value> {
         self.registry
             .all_specs()
             .into_iter()
             .map(|spec| {
                 serde_json::json!({
-                    "name": spec.name,
-                    "description": spec.description,
-                    "input_schema": spec.input_schema,
+                    "type": "function",
+                    "function": {
+                        "name": spec.name,
+                        "description": spec.description,
+                        "parameters": spec.input_schema,
+                    }
                 })
             })
             .collect()
@@ -56,16 +59,16 @@ impl ToolManager {
         match self.registry.get(&tool_use.name) {
             Some(tool) => {
                 match tool.invoke(tool_use.args.clone()).await {
-                    Ok(result) => Message::tool_result(&tool_use.id, result, false),
+                    Ok(result) => Message::tool_result(&tool_use.id, result),
                     Err(err) => {
                         let error_msg = format!("Error: {}", err);
-                        Message::tool_result(&tool_use.id, error_msg, true)
+                        Message::tool_result(&tool_use.id, error_msg)
                     }
                 }
             }
             None => {
                 let error_msg = format!("Unknown tool: {}", tool_use.name);
-                Message::tool_result(&tool_use.id, error_msg, true)
+                Message::tool_result(&tool_use.id, error_msg)
             }
         }
     }

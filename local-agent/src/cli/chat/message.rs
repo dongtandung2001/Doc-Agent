@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-/// Represents a message in the conversation
+/// Represents a message in the conversation (OpenAI format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "role")]
 pub enum Message {
@@ -11,18 +11,10 @@ pub enum Message {
     #[serde(rename = "assistant")]
     Assistant { content: String },
 
-    #[serde(rename = "tool_use")]
-    ToolUse {
-        id: String,
-        name: String,
-        args: Value,
-    },
-
-    #[serde(rename = "tool_result")]
-    ToolResult {
-        tool_use_id: String,
+    #[serde(rename = "tool")]
+    Tool {
+        tool_call_id: String,
         content: String,
-        is_error: bool,
     },
 }
 
@@ -39,19 +31,10 @@ impl Message {
         }
     }
 
-    pub fn tool_use(id: impl Into<String>, name: impl Into<String>, args: Value) -> Self {
-        Self::ToolUse {
-            id: id.into(),
-            name: name.into(),
-            args,
-        }
-    }
-
-    pub fn tool_result(tool_use_id: impl Into<String>, content: impl Into<String>, is_error: bool) -> Self {
-        Self::ToolResult {
-            tool_use_id: tool_use_id.into(),
+    pub fn tool_result(tool_call_id: impl Into<String>, content: impl Into<String>) -> Self {
+        Self::Tool {
+            tool_call_id: tool_call_id.into(),
             content: content.into(),
-            is_error,
         }
     }
 }

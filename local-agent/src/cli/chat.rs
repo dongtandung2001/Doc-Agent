@@ -6,7 +6,7 @@ pub use state::ChatState;
 pub use conversation::ConversationHistory;
 pub use message::Message;
 pub use tool_manager::ToolManager;
-pub use parser::StreamEvent;
+pub use parser::{ResponseEvent, ParsedResponse, parse_response};
 
 mod args;
 mod session;
