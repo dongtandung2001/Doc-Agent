@@ -230,7 +230,10 @@ impl ChatSession {
 
         // If tools were requested, validate and execute them
         if !parsed.tools_to_execute.is_empty() {
-            eprintln!("[DEBUG] Total tools to execute: {}", parsed.tools_to_execute.len());
+            eprintln!(
+                "[DEBUG] Total tools to execute: {}",
+                parsed.tools_to_execute.len()
+            );
             Ok(ChatState::ValidateTools {
                 tools: parsed.tools_to_execute,
             })
@@ -251,7 +254,7 @@ impl ChatSession {
 
         // Check if approval is needed
         if self.tool_manager.requires_approval(&tools) {
-            print!("\nApprove? [y/N]: ");
+            println!("\nApprove? [y/N]: ");
             if let Some(response) = self.input_source.read_line("")? {
                 if !response.trim().eq_ignore_ascii_case("y") {
                     println!("Tools rejected.");

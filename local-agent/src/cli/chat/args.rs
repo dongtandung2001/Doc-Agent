@@ -11,7 +11,7 @@ pub struct ChatArgs {
     pub input: Option<String>,
 
     /// Trust all tools (skip confirmation)
-    #[arg(long)]
+    #[arg(long, env = "TRUST_ALL_TOOLS")]
     pub trust_all_tools: bool,
 
     /// API endpoint URL
@@ -31,13 +31,14 @@ impl Default for ChatArgs {
     fn default() -> Self {
         Self {
             input: None,
-            trust_all_tools: false,
+            trust_all_tools: std::env::var("TRUST_ALL_TOOLS")
+                .unwrap_or_else(|_| "false".to_string())
+                .parse()
+                .unwrap_or(false),
             api_url: std::env::var("CHAT_API_URL")
                 .unwrap_or_else(|_| "https://api.token-ai.cn/v1/chat/completions".to_string()),
-            api_key: std::env::var("CHAT_API_KEY")
-                .unwrap_or_else(|_| String::new()),
-            model: std::env::var("CHAT_MODEL")
-                .unwrap_or_else(|_| "DeepSeek-V3".to_string()),
+            api_key: std::env::var("CHAT_API_KEY").unwrap_or_else(|_| String::new()),
+            model: std::env::var("CHAT_MODEL").unwrap_or_else(|_| "DeepSeek-V3".to_string()),
         }
     }
 }

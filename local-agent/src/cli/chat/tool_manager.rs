@@ -1,19 +1,22 @@
 use eyre::Result;
 use serde_json::Value;
+use std::sync::Arc;
+use std::time::Instant;
+use tracing::{debug, info};
 
-use super::tools::ToolRegistry;
-use super::state::ToolUse;
 use super::message::Message;
+use super::state::ToolUse;
+use super::tools::ToolRegistry;
 
 /// Manages tool execution and results
 pub struct ToolManager {
-    registry: ToolRegistry,
+    registry: Arc<ToolRegistry>,
 }
 
 impl ToolManager {
     pub fn new(trust_all: bool) -> Self {
         Self {
-            registry: ToolRegistry::new(trust_all),
+            registry: Arc::new(ToolRegistry::new(trust_all)),
         }
     }
 
@@ -37,7 +40,9 @@ impl ToolManager {
 
     /// Check if tools require approval
     pub fn requires_approval(&self, tools: &[ToolUse]) -> bool {
-        tools.iter().any(|t| self.registry.requires_approval(&t.name))
+        tools
+            .iter()
+            .any(|t| self.registry.requires_approval(&t.name))
     }
 
     /// Get preview of tool execution
@@ -57,15 +62,13 @@ impl ToolManager {
     /// Execute a single tool
     pub async fn execute_tool(&self, tool_use: &ToolUse) -> Message {
         match self.registry.get(&tool_use.name) {
-            Some(tool) => {
-                match tool.invoke(tool_use.args.clone()).await {
-                    Ok(result) => Message::tool_result(&tool_use.id, result),
-                    Err(err) => {
-                        let error_msg = format!("Error: {}", err);
-                        Message::tool_result(&tool_use.id, error_msg)
-                    }
+            Some(tool) => match tool.invoke(tool_use.args.clone()).await {
+                Ok(result) => Message::tool_result(&tool_use.id, result),
+                Err(err) => {
+                    let error_msg = format!("Error: {}", err);
+                    Message::tool_result(&tool_use.id, error_msg)
                 }
-            }
+            },
             None => {
                 let error_msg = format!("Unknown tool: {}", tool_use.name);
                 Message::tool_result(&tool_use.id, error_msg)
@@ -73,12 +76,78 @@ impl ToolManager {
         }
     }
 
-    /// Execute all tools and return results
+    /// Execute all tools in parallel and return results
     pub async fn execute_all(&self, tools: Vec<ToolUse>) -> Vec<Message> {
-        let mut results = Vec::new();
-        for tool_use in tools {
-            results.push(self.execute_tool(&tool_use).await);
+        let total_start = Instant::now();
+        let tool_count = tools.len();
+
+        debug!("Starting parallel execution of {} tools", tool_count);
+
+        // Spawn parallel tasks for each tool
+        let handles: Vec<_> = tools
+            .into_iter()
+            .map(|tool_use| {
+                let registry = Arc::clone(&self.registry);
+                tokio::spawn(async move { Self::execute_tool_internal(registry, tool_use).await })
+            })
+            .collect();
+
+        // Collect results, handling any panics in spawned tasks
+        let mut results = Vec::with_capacity(handles.len());
+        for handle in handles {
+            match handle.await {
+                Ok(message) => results.push(message),
+                Err(err) => {
+                    // Task panicked - create error message
+                    let error_msg = format!("Task execution failed: {}", err);
+                    results.push(Message::tool_result("error", error_msg));
+                }
+            }
         }
+
+        let total_elapsed = total_start.elapsed();
+        info!(
+            "Completed {} tools in {:.2}ms (parallel execution)",
+            tool_count,
+            total_elapsed.as_secs_f64() * 1000.0
+        );
+
         results
+    }
+
+    /// Internal helper to execute a tool (used by parallel execution)
+    async fn execute_tool_internal(registry: Arc<ToolRegistry>, tool_use: ToolUse) -> Message {
+        let start = Instant::now();
+        let tool_name = tool_use.name.clone();
+        let tool_id = tool_use.id.clone();
+
+        debug!(
+            "Starting execution of tool: {} (id: {})",
+            tool_name, tool_id
+        );
+
+        let message = match registry.get(&tool_use.name) {
+            Some(tool) => match tool.invoke(tool_use.args.clone()).await {
+                Ok(result) => Message::tool_result(&tool_use.id, result),
+                Err(err) => {
+                    let error_msg = format!("Error: {}", err);
+                    Message::tool_result(&tool_use.id, error_msg)
+                }
+            },
+            None => {
+                let error_msg = format!("Unknown tool: {}", tool_use.name);
+                Message::tool_result(&tool_use.id, error_msg)
+            }
+        };
+
+        let elapsed = start.elapsed();
+        info!(
+            "Tool '{}' (id: {}) completed in {:.2}ms",
+            tool_name,
+            tool_id,
+            elapsed.as_secs_f64() * 1000.0
+        );
+
+        message
     }
 }
