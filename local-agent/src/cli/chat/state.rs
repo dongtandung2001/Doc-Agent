@@ -13,8 +13,8 @@ pub enum ChatState {
         input: String,
     },
 
-    /// Streaming AI response
-    HandleResponseStream {
+    /// Handling AI response
+    HandleResponse {
         request: String,
     },
 

@@ -120,8 +120,8 @@ impl ChatSession {
                 }
             }
 
-            ChatState::HandleResponseStream { request } => {
-                eprintln!("[DEBUG] State: HandleResponseStream");
+            ChatState::HandleResponse { request } => {
+                eprintln!("[DEBUG] State: HandleResponse");
                 tokio::select! {
                     res = self.handle_response(request) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -188,8 +188,8 @@ impl ChatSession {
         self.conversation
             .add(super::message::Message::user(input.clone()));
 
-        // Transition to streaming response
-        Ok(ChatState::HandleResponseStream { request: input })
+        // Transition to handling response
+        Ok(ChatState::HandleResponse { request: input })
     }
 
     async fn handle_response(&mut self, _request: String) -> Result<ChatState> {
@@ -281,7 +281,7 @@ impl ChatSession {
         println!("Tools executed.\n");
 
         // Continue the conversation with tool results
-        Ok(ChatState::HandleResponseStream {
+        Ok(ChatState::HandleResponse {
             request: String::new(),
         })
     }
