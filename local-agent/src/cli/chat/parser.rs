@@ -85,24 +85,3 @@ pub enum ResponseEvent {
     /// Response complete
     Done,
 }
-
-/// Parse incremental response (DEPRECATED - kept for future use)
-#[allow(dead_code)]
-pub fn parse_incremental_response(response: Response) -> impl Stream<Item = Result<ResponseEvent>> {
-    response
-        .bytes_stream()
-        .map_err(|e| eyre::eyre!("Response error: {}", e))
-        .map(|result| {
-            result.and_then(|chunk| {
-                let text = String::from_utf8_lossy(&chunk);
-                // eprintln!("[DEBUG] Received chunk: {}", text);
-                parse_response_chunk(&text)
-            })
-        })
-        .flat_map(|result| {
-            futures::stream::iter(match result {
-                Ok(events) => events.into_iter().map(Ok).collect::<Vec<_>>(),
-                Err(e) => vec![Err(e)],
-            })
-        })
-}
