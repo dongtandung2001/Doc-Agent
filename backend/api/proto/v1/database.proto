@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package api.proto.v1;
+
+import "api/proto/v1/common.proto";
+
+option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/v1;apiv1";
+
+// DatabaseService - Proxy layer between services and database
+service DatabaseService {
+  // Store generated documentation section
+  rpc StoreDocument(StoreDocumentRequest) returns (StoreDocumentResponse);
+
+  // Retrieve a specific document section
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
+
+  // Get all document sections for a project (nested tree structure)
+  rpc GetDocumentSections(GetDocumentSectionsRequest) returns (GetDocumentSectionsResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// StoreDocument - Store documentation to SQL database
+message StoreDocumentRequest {
+  string id = 1;                  // Unique ID (can be random string identifier)
+  string content = 2;             // Main file content (markdown)
+  string description = 3;         // Short summary or notes
+  string document_id = 4;         // Document ID (foreign key to DocumentSections)
+  string extra = 5;               // Additional information (JSON format)
+  bool is_embedded = 6;           // Whether file is stored directly in system
+  string title = 7;               // Display title of the document
+}
+
+message StoreDocumentResponse {
+  bool success = 1; // true if stored successfully
+}
+
+// GetDocument - Retrieve document from database
+message GetDocumentRequest {
+  string project_id = 1;  // Project identifier
+  string document_id = 2; // Section that user selected
+}
+
+message GetDocumentResponse {
+  string doc = 1;        // Markdown format document (if successful)
+  string error_msg = 2;  // Error message (if failed)
+}
+
+// GetDocumentSections - Get nested document structure for left panel
+message GetDocumentSectionsRequest {
+  string project_id = 1; // Project identifier
+}
+
+message GetDocumentSectionsResponse {
+  repeated DocumentSection sections = 1;
+}
+
+// DocumentSection - Represents a section in the documentation tree
+message DocumentSection {
+  string title = 1;                        // Section name
+  string description = 2;                  // Section description/summary
+  string url = 3;                          // URL identifier (e.g., "getting-started")
+  repeated DocumentSection children = 4;   // Nested children sections
+}

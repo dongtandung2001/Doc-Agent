@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package api.proto.v1;
+
+option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/v1;apiv1";
+
+// HealthCheck message - used by all services
+message HealthCheckRequest {}
+
+message HealthCheckResponse {
+  bool is_alive = 1; // true = alive, false = error occurs
+}
+
+// Common message types
+message ChatMessage {
+  string role = 1;    // "user" or "assistant"
+  string content = 2; // The message content
+}

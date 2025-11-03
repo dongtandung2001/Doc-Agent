@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package api.proto.v1;
+
+import "api/proto/v1/common.proto";
+
+option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/v1;apiv1";
+
+// CodebaseAnalysisService - Orchestrator/Producer for document generation
+// Analyzes codebase, generates documentation plan, and enqueues tasks to message queue
+service CodebaseAnalysisService {
+  // Start codebase analysis and documentation generation pipeline
+  rpc StartCodebaseAnalysis(StartCodebaseAnalysisRequest) returns (StartCodebaseAnalysisResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// StartCodebaseAnalysis
+message StartCodebaseAnalysisRequest {
+  string project_structure = 1; // JSON string containing project structure from local agent
+}
+
+message StartCodebaseAnalysisResponse {
+  bool success = 1; // Signal that request has been received and processing started
+}

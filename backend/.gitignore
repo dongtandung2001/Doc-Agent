@@ -1,0 +1,66 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+
+# Go build cache / module cache
+/build/
+/bin/
+/dist/
+/coverage/
+/tmp/
+/tools/
+*.log
+
+# Dependency directories (for vendoring, if used)
+vendor/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Go test artifacts
+*.coverprofile
+*.coverage
+coverage.out
+profile.cov
+
+# Local configuration / environment
+.env
+.env.*
+*.local.yaml
+*.local.json
+*.local.toml
+
+# Buf build / protobuf generated code (optional, if regenerated each build)
+gen/
+# Uncomment below if you prefer not to commit generated files
+# gen/go/
+# gen/openapiv2/
+
+# Certificates, keys, and cache (autocert)
+cert-cache/
+*.pem
+*.key
+
+# Docker & build artifacts
+*.tar
+*.img
+*.gz
+*.zip
+
+# Logs and temp data
+logs/
+*.log
+*.tmp
+*.bak
+
+# Editor backups
+*~

@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package api.proto.v1;
+
+import "api/proto/v1/common.proto";
+
+option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/v1;apiv1";
+
+// AIService - LLM interactions (Python service)
+// Handles chat, RAG, and embedding generation
+service AIService {
+  // Chat with AI assistant
+  rpc Chat(ChatRequest) returns (ChatResponse);
+
+  // Health check
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}
+
+// Chat request
+message ChatRequest {
+  repeated ChatMessage messages = 1; // Array of chat messages (role + content)
+  string project_id = 2;             // Project identifier for RAG context
+}
+
+// Chat response
+message ChatResponse {
+  string content = 1; // AI-generated response
+}

@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package api.proto.v1;
+
+import "api/proto/v1/common.proto";
+import "api/proto/v1/localagent.proto";
+import "api/proto/v1/codebase.proto";
+import "api/proto/v1/database.proto";
+import "api/proto/v1/ai.proto";
+
+option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/v1;apiv1";
+
+// GatewayService - Entry point + routing traffic to correct microservices
+// Exposes HTTPS and gRPC endpoints
+service GatewayService {
+  // Start codebase analysis (HTTPS endpoint - proxies to Codebase Analysis)
+  rpc StartCodebaseAnalysis(StartCodebaseAnalysisRequest) returns (StartCodebaseAnalysisResponse);
+
+  // Request file content (gRPC endpoint - proxies to Local Agent)
+  rpc RequestFileContent(RequestFileContentRequest) returns (RequestFileContentResponse);
+
+  // Get generated documentation (HTTPS endpoint - proxies to Database Service)
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
+
+  // Get document sections for navigation (HTTPS endpoint - proxies to Database Service)
+  rpc GetDocumentSections(GetDocumentSectionsRequest) returns (GetDocumentSectionsResponse);
+
+  // Chat API (HTTPS endpoint - proxies to AI Service)
+  rpc Chat(ChatRequest) returns (ChatResponse);
+
+  // Health check - checks all microservices
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+}

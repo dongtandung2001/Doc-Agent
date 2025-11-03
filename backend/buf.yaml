@@ -1,0 +1,12 @@
+# For details on buf.yaml configuration, visit https://buf.build/docs/configuration/v2/buf-yaml
+version: v2
+name: buf.build/dongtandung2001/Doc-Agent
+lint:
+  use:
+    - STANDARD
+  except:
+    # Allow reusing message types across RPCs (common pattern for shared types like HealthCheck, etc.)
+    - RPC_REQUEST_RESPONSE_UNIQUE
+breaking:
+  use:
+    - FILE
