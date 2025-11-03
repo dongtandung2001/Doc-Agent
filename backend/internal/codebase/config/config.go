@@ -5,29 +5,16 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Backends BackendConfig
+	Server ServerConfig
 }
 
 type ServerConfig struct {
-	Host string
-	Port int
-}
-
-type BackendConfig struct {
-	CodebaseService   ServiceEndpoint `mapstructure:"codebase"`
-	DocgenService     ServiceEndpoint `mapstructure:"docgen"`
-	AIService         ServiceEndpoint `mapstructure:"ai"`
-	LocalAgentService ServiceEndpoint `mapstructure:"local_agent"`
-}
-
-type ServiceEndpoint struct {
 	Host string `mapstructure:"host"`
 	Port int    `mapstructure:"port"`
 }
 
 func Load() (*Config, error) {
-	viper.SetConfigName("gateway")
+	viper.SetConfigName("codebase")
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./configs")
 	viper.AddConfigPath(".")
