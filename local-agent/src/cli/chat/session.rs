@@ -4,7 +4,7 @@ use tokio::sync::broadcast;
 use tracing::error;
 
 use super::args::ChatArgs;
-use super::cli::SlashCommand;
+use super::cli::slash_commands;
 use super::conversation::ConversationHistory;
 use super::input_source::InputSource;
 use super::parser::parse_response;
@@ -180,8 +180,8 @@ impl ChatSession {
 
     async fn handle_input(&mut self, input: String) -> Result<ChatState> {
         // Check for slash commands
-        if let Some(cmd) = SlashCommand::parse(&input) {
-            return Ok(cmd.execute());
+        if let Some(state) = slash_commands::parse_and_execute(&input) {
+            return Ok(state);
         }
 
         // Add user message to conversation
