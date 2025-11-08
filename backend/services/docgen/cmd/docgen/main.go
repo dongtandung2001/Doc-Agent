@@ -6,21 +6,38 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/clients"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/config"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/service"
 )
 
 func main() {
 	// Load configuration
-	_, err := config.Load()
+	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// Connect to AI Service
+	aiClient, aiConn, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	if err != nil {
+		log.Fatalf("Failed to connect to AI Service: %v", err)
+	}
+	defer aiConn.Close()
+
+	// Connect to Gateway (to reach Local Agent)
+	gatewayClient, gatewayConn, err := clients.NewGatewayClient(cfg.Gateway.Host, cfg.Gateway.Port)
+	if err != nil {
+		log.Fatalf("Failed to connect to Gateway: %v", err)
+	}
+	defer gatewayConn.Close()
+
 	// Initialize service layer
-	docgenSvc := service.NewDocGenService()
+	docgenSvc := service.NewDocGenService(aiClient, gatewayClient)
 
 	log.Println("🚀 Document Generation Worker starting...")
+	log.Printf("   Connected to AI Service at %s:%d", cfg.AI.Host, cfg.AI.Port)
+	log.Printf("   Connected to Gateway at %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
 
 	// Start message queue worker
 	go func() {

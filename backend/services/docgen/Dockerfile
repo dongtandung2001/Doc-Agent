@@ -22,6 +22,6 @@ WORKDIR /root/
 COPY --from=builder /docgen .
 COPY configs ./configs
 
-EXPOSE 9003
+# No EXPOSE - this is a worker, not a server
 
 CMD ["./docgen"]

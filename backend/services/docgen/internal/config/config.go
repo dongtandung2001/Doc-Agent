@@ -5,12 +5,13 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig
+	AI      ServiceEndpoint
+	Gateway ServiceEndpoint
 }
 
-type ServerConfig struct {
-	Host string
-	Port int
+type ServiceEndpoint struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
 }
 
 func Load() (*Config, error) {

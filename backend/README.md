@@ -37,12 +37,14 @@ backend/
   - Generates documentation tasks
   - Enqueues tasks to message queue for DocGen
 
-### 3. Document Generation Service
-- **Port**: 9003
-- **Type**: Worker service (no gRPC interface)
+### 3. Document Generation Worker
+- **Port**: None (worker service)
+- **Type**: Background worker (no server interface)
+- **Clients**: AI Service, Gateway (for Local Agent access)
 - **Responsibilities**:
-  - Consumes tasks from message queue
-  - Generates documentation sections using AI
+  - Consumes tasks from message queue (future: RabbitMQ/Kafka)
+  - Calls AI Service to generate documentation sections
+  - Calls Gateway to request file content from Local Agent
   - Stores completed sections in Database service
 
 ### 4. Database Service
@@ -100,7 +102,7 @@ docker-compose up --build
 This will start:
 - Gateway on :8080
 - Codebase service on :9001
-- DocGen worker on :9003
+- DocGen worker (no exposed port - background worker)
 - Database service on :9002
 - PostgreSQL on :5432
 
@@ -137,7 +139,12 @@ Gateway (HTTP/Connect)
 └─→ Local Agent (gRPC)
 
 Codebase → Message Queue → DocGen Worker
-DocGen → Database Service (gRPC)
+                            ↓
+                     ┌──────┴──────┐
+                     ↓              ↓
+              AI Service      Gateway → Local Agent
+                     ↓
+              Database Service
 ```
 
 ## Next Steps
@@ -149,10 +156,3 @@ DocGen → Database Service (gRPC)
 5. **Testing**: Add integration tests for each service
 6. **CI/CD**: Setup independent deployment pipelines per service
 
-## Migration Notes
-
-The old monolithic structure has been preserved in:
-- `cmd/` (old entry points)
-- `internal/` (old shared code)
-
-These can be removed once the new microservices structure is fully validated.
