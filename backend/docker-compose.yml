@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # API Gateway
+  gateway:
+    build:
+      context: ./services/gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=8080
+      - CODEBASE_HOST=codebase
+      - CODEBASE_PORT=9001
+      - DOCGEN_HOST=docgen
+      - DOCGEN_PORT=9003
+      - DATABASE_HOST=database
+      - DATABASE_PORT=9002
+    depends_on:
+      - codebase
+      - docgen
+      - database
+    networks:
+      - doc-agent-network
+
+  # Codebase Analysis Service
+  codebase:
+    build:
+      context: ./services/codebase
+      dockerfile: Dockerfile
+    ports:
+      - "9001:9001"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=9001
+      - AI_HOST=ai-service
+      - AI_PORT=50051
+    networks:
+      - doc-agent-network
+
+  # Document Generation Service
+  docgen:
+    build:
+      context: ./services/docgen
+      dockerfile: Dockerfile
+    ports:
+      - "9003:9003"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=9003
+    networks:
+      - doc-agent-network
+
+  # Database Service
+  database:
+    build:
+      context: ./services/database
+      dockerfile: Dockerfile
+    ports:
+      - "9002:9002"
+    environment:
+      - SERVER_HOST=0.0.0.0
+      - SERVER_PORT=9002
+      - POSTGRES_URL=postgres://user:password@postgres:5432/docagent
+      - VECTOR_DB_URL=http://vector-db:8000
+    depends_on:
+      - postgres
+    networks:
+      - doc-agent-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=docagent
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - doc-agent-network
+
+networks:
+  doc-agent-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
