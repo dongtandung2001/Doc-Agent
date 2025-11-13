@@ -7,6 +7,12 @@ edition = "2021"
 # Async runtime
 tokio = { version = "1", features = ["full"] }
 
+
+# gRPC
+tonic = "0.14.2"
+prost = "0.14.1"
+
+
 # CLI & Terminal
 clap = { version = "4", features = ["derive", "env"] }
 rustyline = "17.0.2"
@@ -39,3 +45,7 @@ dotenvy = "0.15"
 
 [dev-dependencies]
 tokio-test = "0.4"
+
+[build-dependencies]
+tonic-build = "0.14.2"
+prost-build = "0.14.1"

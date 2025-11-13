@@ -11,10 +11,10 @@ import (
 	"google.golang.org/grpc"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
-	"github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/clients"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/config"
 	grpcserver "github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/grpc"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/service"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 func main() {
@@ -24,11 +24,11 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	aiClient, aiConn, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	aiClient, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
 	if err != nil {
 		log.Fatalf("Failed to connect to AIService: %v", err)
 	}
-	defer aiConn.Close()
+	defer aiClient.Close()
 
 	// Initialize service layer
 	analysisSvc := service.NewAnalysisService(aiClient)

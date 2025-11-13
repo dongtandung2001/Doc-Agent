@@ -6,10 +6,10 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/clients"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/config"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/handlers"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/http"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 func main() {
@@ -20,46 +20,47 @@ func main() {
 	}
 
 	// Initialize gRPC clients to all backend services
-	// localAgentClient, localAgentConn, err := clients.NewLocalAgentClient(
+	// localAgentClient, err := clients.NewLocalAgentClient(
 	// 	cfg.Backends.LocalAgentService.Host,
 	// 	cfg.Backends.LocalAgentService.Port,
 	// )
 	// if err != nil {
 	// 	log.Fatalf("Failed to connect to local agent service: %v", err)
 	// }
-	// defer localAgentConn.Close()
+	// defer localAgentClient.Close()
 
-	codebaseClient, codebaseConn, err := clients.NewCodebaseAnalysisClient(
+	codebaseClient, err := clients.NewCodebaseClient(
 		cfg.Backends.CodebaseService.Host,
 		cfg.Backends.CodebaseService.Port,
 	)
 	if err != nil {
-		log.Fatalf("Failed t	o connect to codebase analysis service: %v", err)
+		log.Fatalf("Failed to connect to codebase analysis service: %v", err)
 	}
-	defer codebaseConn.Close()
+	defer codebaseClient.Close()
 
-	// databaseClient, databaseConn, err := clients.NewDatabaseClient(
+	// databaseClient, err := clients.NewDatabaseClient(
 	// 	"localhost", // TODO: Get from config
 	// 	9002,        // TODO: Get from config
 	// )
 	// if err != nil {
 	// 	log.Fatalf("Failed to connect to database service: %v", err)
 	// }
-	// defer databaseConn.Close()
+	// defer databaseClient.Close()
 
-	// aiClient, aiConn, err := clients.NewAIClient(
+	// aiClient, err := clients.NewAIClient(
 	// 	cfg.Backends.AIService.Host,
 	// 	cfg.Backends.AIService.Port,
 	// )
 	// if err != nil {
 	// 	log.Fatalf("Failed to connect to AI service: %v", err)
 	// }
-	// defer aiConn.Close()
+	// defer aiClient.Close()
 
 	// Initialize gateway handler (proxies to all backend services)
+	// Pass the underlying gRPC clients using GetClient()
 	gatewayHandler := handlers.NewGatewayHandler(
 		nil,
-		codebaseClient,
+		codebaseClient.GetClient(),
 		nil,
 		nil,
 	)

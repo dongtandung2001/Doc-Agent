@@ -3,18 +3,18 @@ package service
 import (
 	"log"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 type DocGenService struct {
-	aiClient      apiv1.AIServiceClient
-	gatewayClient apiv1.GatewayServiceClient
+	aiClient      *clients.AIClient
+	gatewayClient *clients.GatewayClient
 	// messageQueueConsumer - TODO: Add RabbitMQ/Kafka consumer
 }
 
 func NewDocGenService(
-	aiClient apiv1.AIServiceClient,
-	gatewayClient apiv1.GatewayServiceClient,
+	aiClient *clients.AIClient,
+	gatewayClient *clients.GatewayClient,
 ) *DocGenService {
 	return &DocGenService{
 		aiClient:      aiClient,

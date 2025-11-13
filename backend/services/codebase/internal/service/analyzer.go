@@ -6,17 +6,18 @@ import (
 	"log"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 type AnalysisService struct {
-	aiClient apiv1.AIServiceClient
+	aiClient *clients.AIClient
 	// Add dependencies:
 	// - Message queue client (RabbitMQ/Kafka) to enqueue tasks
 	// - Cache for analysis results
 	// - LLM client for classification
 }
 
-func NewAnalysisService(aiClient apiv1.AIServiceClient) *AnalysisService {
+func NewAnalysisService(aiClient *clients.AIClient) *AnalysisService {
 	return &AnalysisService{
 		aiClient: aiClient,
 	}

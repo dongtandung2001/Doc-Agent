@@ -6,9 +6,9 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/clients"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/config"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/service"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 func main() {
@@ -19,18 +19,18 @@ func main() {
 	}
 
 	// Connect to AI Service
-	aiClient, aiConn, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	aiClient, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
 	if err != nil {
 		log.Fatalf("Failed to connect to AI Service: %v", err)
 	}
-	defer aiConn.Close()
+	defer aiClient.Close()
 
 	// Connect to Gateway (to reach Local Agent)
-	gatewayClient, gatewayConn, err := clients.NewGatewayClient(cfg.Gateway.Host, cfg.Gateway.Port)
+	gatewayClient, err := clients.NewGatewayClient(cfg.Gateway.Host, cfg.Gateway.Port)
 	if err != nil {
 		log.Fatalf("Failed to connect to Gateway: %v", err)
 	}
-	defer gatewayConn.Close()
+	defer gatewayClient.Close()
 
 	// Initialize service layer
 	docgenSvc := service.NewDocGenService(aiClient, gatewayClient)

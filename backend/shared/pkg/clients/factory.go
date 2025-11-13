@@ -5,20 +5,20 @@ import (
 	"net"
 	"strconv"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func NewAIClient(host string, port int) (apiv1.AIServiceClient, *grpc.ClientConn, error) {
+// newGRPCConnection creates a new gRPC client connection
+// This is an internal helper used by all client constructors
+func newGRPCConnection(host string, port int) (*grpc.ClientConn, error) {
 	target := net.JoinHostPort(host, strconv.Itoa(port))
 	opts := []grpc.DialOption{
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	}
 	conn, err := grpc.NewClient(target, opts...)
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create AI service client: %w", err)
+		return nil, fmt.Errorf("failed to create gRPC connection: %w", err)
 	}
-
-	return apiv1.NewAIServiceClient(conn), conn, nil
+	return conn, nil
 }
