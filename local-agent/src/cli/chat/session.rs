@@ -81,11 +81,6 @@ impl ChatSession {
         })
     }
 
-    /// Get the root directory of the chat session
-    pub fn root_dir(&self) -> &PathBuf {
-        &self.root_dir
-    }
-
     /// Send a message programmatically (bypasses CLI input)
     ///
     /// This runs the same state machine logic as the interactive loop,
@@ -106,7 +101,6 @@ impl ChatSession {
 
             self.next().await?;
         }
-
         // Get the last message from conversation (should always be Assistant)
         let response = match self.conversation.messages().last() {
             Some(super::message::Message::Assistant { content }) => content.clone(),
@@ -196,7 +190,6 @@ impl ChatSession {
                 return Ok(());
             }
         };
-
         // Transition to next state
         match result {
             Ok(next_state) => {
