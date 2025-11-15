@@ -9,6 +9,7 @@ import (
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	ChatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
+	promptProcessor "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/utils/prompt"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
@@ -38,34 +39,13 @@ func NewAIClient(host string, port int) (*AIClient, error) {
 	}, nil
 }
 
-// processPromptBlock replaces {{$key}} patterns with values from the context
-func processPromptContext(prompt string, chatContext *ChatContext.ChatContext) string {
-	if chatContext == nil {
-		return prompt
-	}
-
-	return templateVarRegex.ReplaceAllStringFunc(prompt, func(match string) string {
-		// Extract key from the match without running regex again
-		// match is "{{$key}}", so strip the {{$ prefix and }} suffix
-		key := match[3 : len(match)-2]
-
-		// Try to get the value from context
-		if value, exists := chatContext.Get(key); exists {
-			return fmt.Sprintf("%v", value)
-		}
-
-		// If key doesn't exist, return the original placeholder
-		return match
-	})
-}
-
 // PrepareRequest processes the input before sending to Chat
 // Replaces all {{$key}} patterns in the prompt with values from the context
 func (c *AIClient) PrepareChatRequest(messages []*apiv1.ChatMessage, chatContext *ChatContext.ChatContext, prompt string, promptProcessingRequire bool) *apiv1.ChatRequest {
 	processedPrompt := prompt
 	// Replace template variables in the prompt
 	if promptProcessingRequire {
-		processedPrompt = processPromptContext(prompt, chatContext)
+		processedPrompt = promptProcessor.ProcessTemplateVariables(prompt, chatContext)
 	}
 
 	// Append the processed prompt as a user message

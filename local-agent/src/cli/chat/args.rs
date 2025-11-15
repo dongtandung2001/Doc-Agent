@@ -41,6 +41,7 @@ impl Default for ChatArgs {
             model: std::env::var("CHAT_MODEL").unwrap_or_else(|_| "DeepSeek-V3".to_string()),
         }
     }
+    
 }
 
 impl ChatArgs {

@@ -42,6 +42,7 @@ httpmock = "0.8.2"
 
 # Environment variables
 dotenvy = "0.15"
+ignore = "0.4.25"
 
 [dev-dependencies]
 tokio-test = "0.4"
