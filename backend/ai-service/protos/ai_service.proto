@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package ai_service;
+
+service AIService {
+  rpc Chat(ChatRequest) returns (ChatResponse);
+  rpc HealthCheck(Empty) returns (HealthCheckResponse);
+}
+
+message ChatMessage {
+  string role = 1;
+  string content = 2;
+}
+
+message ChatRequest {
+  repeated ChatMessage messages = 1;
+  string project_id = 2;
+}
+
+message ChatResponse {
+  string content = 1;
+}
+
+message Empty {}
+
+message HealthCheckResponse {
+  bool isAlive = 1;
+}

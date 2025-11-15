@@ -1,0 +1,8 @@
+grpcio==1.60.0
+grpcio-tools==1.60.0
+openai>=1.55.3,<2.0.0
+langchain==0.1.0
+langchain-openai==0.0.5
+chromadb==0.4.22
+python-dotenv==1.0.0
+pydantic==2.5.3

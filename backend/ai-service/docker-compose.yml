@@ -1,0 +1,35 @@
+
+# docker-compose.yml
+services:
+  ai-service:
+    build: .
+    container_name: ai-service
+    ports:
+      - "50051:50051"
+    environment:
+      - GRPC_PORT=50051
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=gpt-4o-mini
+      - LLM_TEMPERATURE=0.7
+      - LLM_MAX_TOKENS=2000
+      - VECTOR_DB_PATH=/app/data/chroma_db
+      - EMBEDDING_MODEL=text-embedding-3-small
+      - TOP_K_RETRIEVAL=5
+      - LOG_LEVEL=INFO
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import grpc; import ai_service_pb2; import ai_service_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = ai_service_pb2_grpc.AIServiceStub(channel); stub.HealthCheck(ai_service_pb2.Empty()); channel.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  microservices-network:
+    name: microservices-network
+    driver: bridge

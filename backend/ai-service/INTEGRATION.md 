@@ -1,0 +1,333 @@
+"""
+# AI Service Integration Guide
+
+This guide helps other backend engineers integrate with the AI Service microservice.
+
+## Quick Start for Integration
+
+### 1. Using Docker Compose (Recommended)
+
+Add the AI Service to your existing `docker-compose.yml`:
+
+```yaml
+services:
+  your-service:
+    # Your service configuration
+    networks:
+      - microservices-network
+    depends_on:
+      - ai-service
+
+  ai-service:
+    image: ai-service:latest
+    container_name: ai-service
+    ports:
+      - "50051:50051"
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
+```
+
+### 2. Service Discovery
+
+In Docker network, the AI Service is accessible at:
+- **Hostname**: `ai-service` (container name)
+- **Port**: `50051`
+- **URL**: `ai-service:50051`
+
+### 3. gRPC Client Integration
+
+#### Python Client Example:
+
+```python
+import grpc
+from generated import ai_service_pb2, ai_service_pb2_grpc
+
+# Connect to AI Service
+channel = grpc.insecure_channel('ai-service:50051')
+stub = ai_service_pb2_grpc.AIServiceStub(channel)
+
+# Make a chat request
+request = ai_service_pb2.ChatRequest(
+    messages=[
+        ai_service_pb2.ChatMessage(role="user", content="How does login work?")
+    ],
+    project_id="my_project_123"
+)
+
+response = stub.Chat(request)
+print(response.content)
+```
+
+#### Node.js Client Example:
+
+```javascript
+const grpc = require('@grpc/grpc-js');
+const protoLoader = require('@grpc/proto-loader');
+
+const packageDefinition = protoLoader.loadSync('ai_service.proto');
+const aiService = grpc.loadPackageDefinition(packageDefinition).ai_service;
+
+const client = new aiService.AIService(
+  'ai-service:50051',
+  grpc.credentials.createInsecure()
+);
+
+const request = {
+  messages: [{ role: 'user', content: 'How does login work?' }],
+  project_id: 'my_project_123'
+};
+
+client.Chat(request, (error, response) => {
+  if (error) {
+    console.error('Error:', error);
+  } else {
+    console.log('Response:', response.content);
+  }
+});
+```
+
+#### Go Client Example:
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "google.golang.org/grpc"
+    pb "path/to/generated/ai_service"
+)
+
+func main() {
+    conn, err := grpc.Dial("ai-service:50051", grpc.WithInsecure())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+
+    client := pb.NewAIServiceClient(conn)
+
+    req := &pb.ChatRequest{
+        Messages: []*pb.ChatMessage{
+            {Role: "user", Content: "How does login work?"},
+        },
+        ProjectId: "my_project_123",
+    }
+
+    resp, err := client.Chat(context.Background(), req)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println("Response:", resp.Content)
+}
+```
+
+## API Reference
+
+### Chat RPC
+
+**Request:**
+```protobuf
+message ChatRequest {
+  repeated ChatMessage messages = 1;  // Conversation history
+  string project_id = 2;              // Required: Your project ID
+}
+
+message ChatMessage {
+  string role = 1;     // "user" or "assistant"
+  string content = 2;  // Message content
+}
+```
+
+**Response:**
+```protobuf
+message ChatResponse {
+  string content = 1;  // AI-generated response
+}
+```
+
+**Features:**
+- Automatically uses RAG for code-related queries
+- Maintains conversation context
+- Auto-embeds documentation when request name contains "Doc Generating"
+
+### HealthCheck RPC
+
+**Request:** Empty
+
+**Response:**
+```protobuf
+message HealthCheckResponse {
+  bool isAlive = 1;  // true if service is healthy
+}
+```
+
+## Environment Variables
+
+Required:
+- `OPENAI_API_KEY` - Your OpenAI API key
+
+Optional (with defaults):
+- `GRPC_PORT=50051`
+- `LLM_MODEL=gpt-4`
+- `LLM_TEMPERATURE=0.7`
+- `LLM_MAX_TOKENS=2000`
+- `VECTOR_DB_PATH=/app/data/chroma_db`
+- `LOG_LEVEL=INFO`
+
+## Network Configuration
+
+### Docker Network
+All services should be on the same network:
+```yaml
+networks:
+  microservices-network:
+    driver: bridge
+```
+
+### Port Mapping
+- **Internal**: Services communicate via `ai-service:50051`
+- **External**: Host can access via `localhost:50051`
+
+## Error Handling
+
+### Common gRPC Status Codes
+
+| Code | Meaning | Action |
+|------|---------|--------|
+| `INVALID_ARGUMENT` | Missing required fields | Check project_id and messages |
+| `INTERNAL` | Service error | Retry with exponential backoff |
+| `UNAVAILABLE` | Service down | Check health endpoint first |
+
+### Example Error Handling (Python):
+
+```python
+import grpc
+
+try:
+    response = stub.Chat(request)
+except grpc.RpcError as e:
+    if e.code() == grpc.StatusCode.INVALID_ARGUMENT:
+        print("Invalid request:", e.details())
+    elif e.code() == grpc.StatusCode.UNAVAILABLE:
+        print("Service unavailable, retrying...")
+    else:
+        print(f"Error: {e.code()} - {e.details()}")
+```
+
+## Integration Testing
+
+### Test Service Availability
+
+```bash
+# From your service container
+docker exec your-service python -c "
+import grpc
+channel = grpc.insecure_channel('ai-service:50051')
+try:
+    grpc.channel_ready_future(channel).result(timeout=10)
+    print('AI Service is reachable')
+except grpc.FutureTimeoutError:
+    print('AI Service is NOT reachable')
+"
+```
+
+### Test Health Check
+
+```bash
+# Using grpcurl
+docker exec -it your-service grpcurl -plaintext ai-service:50051 ai_service.AIService/HealthCheck
+```
+
+## Deployment Checklist
+
+- [ ] Add AI Service to your docker-compose.yml
+- [ ] Set OPENAI_API_KEY in environment
+- [ ] Ensure services are on same Docker network
+- [ ] Copy ai_service.proto file to your project
+- [ ] Generate gRPC client code for your language
+- [ ] Test connection with HealthCheck
+- [ ] Implement error handling and retries
+- [ ] Configure logging for debugging
+- [ ] Set up monitoring (optional)
+
+## Performance Considerations
+
+### Connection Pooling
+Reuse gRPC channels instead of creating new ones for each request:
+
+```python
+# Good: Reuse channel
+class MyService:
+    def __init__(self):
+        self.channel = grpc.insecure_channel('ai-service:50051')
+        self.stub = ai_service_pb2_grpc.AIServiceStub(self.channel)
+
+    def chat(self, message):
+        return self.stub.Chat(...)
+
+# Bad: New channel each time
+def chat(message):
+    channel = grpc.insecure_channel('ai-service:50051')
+    stub = ai_service_pb2_grpc.AIServiceStub(channel)
+    return stub.Chat(...)
+```
+
+### Timeouts
+Set appropriate timeouts:
+
+```python
+response = stub.Chat(request, timeout=30)  # 30 seconds
+```
+
+### Concurrent Requests
+The AI Service handles concurrent requests. You can safely make parallel calls.
+
+## Monitoring & Debugging
+
+### View Logs
+```bash
+docker logs ai-service -f
+```
+
+### Check Service Status
+```bash
+docker ps | grep ai-service
+```
+
+### Inspect Network
+```bash
+docker network inspect microservices-network
+```
+
+## Troubleshooting
+
+### "Service Unavailable"
+1. Check if AI Service container is running: `docker ps`
+2. Check if services are on same network
+3. Verify OPENAI_API_KEY is set
+
+### "Connection Refused"
+1. Verify port 50051 is exposed
+2. Check firewall rules
+3. Ensure using correct hostname: `ai-service:50051`
+
+### Slow Responses
+1. Check OpenAI API rate limits
+2. Monitor vector database size
+3. Reduce `LLM_MAX_TOKENS` if needed
+
+## Support
+
+For issues or questions:
+1. Check logs: `docker logs ai-service`
+2. Review this integration guide
+3. Contact AI Service team: maggie.qin@sjsu.edu
+"""

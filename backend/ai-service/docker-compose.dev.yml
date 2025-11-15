@@ -1,0 +1,47 @@
+# docker-compose.dev.yml (for development with other services)
+services:
+  ai-service:
+    build: .
+    container_name: ai-service-dev
+    ports:
+      - "50051:50051"
+    environment:
+      - GRPC_PORT=50051
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - LLM_MODEL=gpt-4o-mini
+      - VECTOR_DB_PATH=/app/data/chroma_db
+      - LOG_LEVEL=DEBUG
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+      - .:/app  # Mount code for hot reload in dev
+    networks:
+      - microservices-network
+    restart: unless-stopped
+    command: python main.py
+
+  # Example: Database Service (other engineer's service)
+  database-service:
+    image: database-service:latest  # Replace with actual image
+    container_name: database-service
+    ports:
+      - "50052:50052"
+    networks:
+      - microservices-network
+    depends_on:
+      - ai-service
+
+  # Example: Other microservices can be added here
+  # web-display:
+  #   image: web-display:latest
+  #   ports:
+  #     - "3000:3000"
+  #   networks:
+  #     - microservices-network
+  #   depends_on:
+  #     - ai-service
+  #     - database-service
+
+networks:
+  microservices-network:
+    driver: bridge

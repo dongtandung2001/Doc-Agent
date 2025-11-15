@@ -51,3 +51,5 @@ Icon?
 
 # But keep README.md
 !README.md
+backend/ai-service/venv/
+backend/ai-service/__pycache__/
