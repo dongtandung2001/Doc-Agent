@@ -3,10 +3,8 @@ use crossterm::style::Stylize;
 use eyre::Result;
 use std::process::ExitCode;
 
-mod api;
-mod cli;
-mod grpc;
-mod util;
+use local_agent::cli;
+use local_agent::grpc::server;
 
 fn main() -> Result<ExitCode> {
     // Load .env file if it exists (ignore if not found)
@@ -40,7 +38,7 @@ fn main() -> Result<ExitCode> {
         let exit_result = parsed.execute().await;
 
         // Always cleanup gRPC server before exiting
-        if let Err(e) = grpc::server::shutdown_global_server().await {
+        if let Err(e) = server::shutdown_global_server().await {
             eprintln!("Error shutting down gRPC server: {}", e);
         }
 
