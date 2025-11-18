@@ -35,7 +35,10 @@ impl ApiClient {
             "tool_choice": if tools.is_empty() { json!("none") } else { json!("auto") }
         });
 
-        // eprintln!("[DEBUG] ApiClient - Request body: {}", serde_json::to_string_pretty(&request_body)?);
+        eprintln!(
+            "[DEBUG] ApiClient - Request body: {}",
+            serde_json::to_string_pretty(&request_body)?
+        );
 
         let response = self
             .client
@@ -55,7 +58,10 @@ impl ApiClient {
 
         // Parse JSON response
         let json: Value = response.json().await?;
-        eprintln!("[DEBUG] API Response: {}", serde_json::to_string_pretty(&json)?);
+        eprintln!(
+            "[DEBUG] API Response: {}",
+            serde_json::to_string_pretty(&json)?
+        );
 
         Ok(json)
     }

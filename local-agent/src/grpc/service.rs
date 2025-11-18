@@ -1,7 +1,7 @@
 use super::handler;
 use crate::grpc::proto::{
-    local_agent_service_server::LocalAgentService, HealthCheckRequest, HealthCheckResponse,
-    RequestFileContentRequest, RequestFileContentResponse,
+    local_agent_service_server::LocalAgentService, FileReadResult, HealthCheckRequest,
+    HealthCheckResponse, RequestFileContentRequest, RequestFileContentResponse,
 };
 use tonic::{Request, Response, Status};
 
@@ -15,18 +15,22 @@ impl LocalAgentService for LocalAgentServiceImpl {
         request: Request<RequestFileContentRequest>,
     ) -> Result<Response<RequestFileContentResponse>, Status> {
         let req = request.into_inner();
-        let paths = req.paths;
-        let results = handler::read_file_content(paths).await;
+        let arg = req.args;
+        let file_read_results = handler::read_file_content(arg).await;
 
-        println!("Read file content results: {:?}", results);
+        println!("Read file content results: {:?}", file_read_results);
+
+        // Convert handler::FileReadResult to proto::FileReadResult
+        let final_results: Vec<FileReadResult> = file_read_results
+            .into_iter()
+            .map(|res| FileReadResult {
+                id: res.id,
+                content: res.content.unwrap_or_default(),
+            })
+            .collect();
+
         Ok(Response::new(RequestFileContentResponse {
-            content: results
-                .into_iter()
-                .map(|res| match res.error {
-                    Some(err) => format!("Error reading {}: {}", res.path, err),
-                    None => res.content.unwrap_or_default(),
-                })
-                .collect(),
+            results: final_results,
         }))
     }
 

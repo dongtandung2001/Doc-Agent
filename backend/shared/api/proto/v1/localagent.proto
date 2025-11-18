@@ -16,11 +16,23 @@ service LocalAgentService {
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
 
+
+message FileReadResult {
+  string id = 1;
+  string content = 2;
+}
+
+message FileReadArg {
+  string id = 1;
+  string path = 2;
+}
+
+
 // RequestFileContent - Read files on request
 message RequestFileContentRequest {
-  repeated string paths = 1; // File path (e.g., ["base/cli/chat.rs"])
+  repeated FileReadArg args = 1;
 }
 
 message RequestFileContentResponse {
-  string content = 1; // File content as string
+  repeated FileReadResult results = 1;
 }
