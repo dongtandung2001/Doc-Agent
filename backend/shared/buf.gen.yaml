@@ -4,7 +4,7 @@ managed:
   enabled: true
   override:
     - file_option: go_package_prefix
-      value: github.com/dongtandung2001/Doc-Agent/backend/gen
+      value: github.com/dongtandung2001/Doc-Agent/backend/shared/gen
   disable:
     - file_option: go_package
       module: buf.build/bufbuild/protovalidate

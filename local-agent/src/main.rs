@@ -1,10 +1,11 @@
 use clap::Parser;
 use crossterm::style::Stylize;
 use eyre::Result;
-use std::process::ExitCode;
+use std::{env, process::ExitCode};
 
 mod api;
 mod cli;
+mod grpc;
 mod util;
 
 fn main() -> Result<ExitCode> {
@@ -34,7 +35,15 @@ fn main() -> Result<ExitCode> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let result = runtime.block_on(parsed.execute());
+
+    let result = runtime.block_on(async {
+        let exit_result = parsed.execute().await;
+
+        // Always cleanup before exiting
+        local_agent::cleanup().await;
+
+        exit_result
+    });
 
     match result {
         Ok(exit_code) => Ok(exit_code),

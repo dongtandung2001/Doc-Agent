@@ -18,7 +18,7 @@ service LocalAgentService {
 
 // RequestFileContent - Read files on request
 message RequestFileContentRequest {
-  string path = 1; // File path (e.g., "base/cli/chat.rs")
+  repeated string paths = 1; // File path (e.g., ["base/cli/chat.rs"])
 }
 
 message RequestFileContentResponse {

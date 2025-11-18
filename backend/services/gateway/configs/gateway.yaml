@@ -14,7 +14,7 @@ backends:
     port: 9003
   local_agent:
     host: "localhost"
-    port: 9004
+    port: 50051
 
 redis:
   host: "localhost"

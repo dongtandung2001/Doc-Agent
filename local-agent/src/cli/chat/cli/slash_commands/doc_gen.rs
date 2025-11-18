@@ -1,47 +1,96 @@
+use std::env;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use once_cell::sync::Lazy;
+
 use crate::cli::chat::tools::Tool;
 use crate::cli::chat::ChatArgs;
 use crate::cli::chat::ChatSession;
+
+use crate::grpc::server as grpc;
+use crate::grpc::server::ServerHandle;
 
 use super::super::super::ChatState;
 
 use super::super::super::tools;
 
+// Global server handle to keep the gRPC server alive
+static SERVER_HANDLE: Lazy<Arc<Mutex<Option<ServerHandle>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(None)));
+
 pub async fn execute(path: &str) -> ChatState {
     println!("Starting document generation...");
     println!("Please keep the agent running while documents are being generated.");
 
-    // scan directory with gitignore support as part of doc generation
-    let scanTool = tools::IgnoreScanTool;
-    let args = serde_json::json!({ "path": path });
-    let res = scanTool.invoke(args).await;
+    //  // scan directory with gitignore support as part of doc generation
+    //  let scan_tool = tools::IgnoreScanTool;
+    //  let args = serde_json::json!({ "path": path });
+    //  let res = scan_tool.invoke(args).await;
 
-    println!(
-        "Directory scan completed. Generating documents...\n{:?}",
-        res
-    );
+    //  println!(
+    //      "Directory scan completed. Generating documents...\n{:?}",
+    //      res
+    //  );
 
-    let dir = match res {
-        Ok(d) => d,
-        Err(e) => {
-            println!("Error during directory scan: {}", e);
-            return ChatState::PromptUser {
-                skip_printing_tools: false,
-            };
-        }
+    //  let dir = match res {
+    //      Ok(d) => d,
+    //      Err(e) => {
+    //          println!("Error during directory scan: {}", e);
+    //          return ChatState::PromptUser {
+    //              skip_printing_tools: false,
+    //          };
+    //      }
+    //  };
+
+    //  let _readme = generate_or_update_readme(&dir).await;
+
+    // Check if server is already running
+    let server_already_running = {
+        let handle_guard = SERVER_HANDLE.lock().await;
+        handle_guard.is_some()
     };
 
-    let _readme = generate_readme(&dir).await;
+    if server_already_running {
+        println!("gRPC server is already running.");
+    } else {
+        // Create server and extract result in a scope to ensure it's dropped before next await
+        let (handle, addr) = {
+            let server_result = create_grpc_server().await;
 
-    println!("README generation completed.\n{:?}", _readme);
+            // Extract result immediately to avoid holding it across await
+            match server_result {
+                Ok(handle) => {
+                    let addr = handle.address();
+                    (handle, addr)
+                }
+                Err(e) => {
+                    let error_msg = e.to_string();
+                    println!("Failed to start gRPC server: {}", error_msg);
+                    return ChatState::PromptUser {
+                        skip_printing_tools: false,
+                    };
+                }
+            }
+        }; // server_result is dropped here
+
+        // Store handle in global variable to keep server alive
+        *SERVER_HANDLE.lock().await = Some(handle);
+        println!("✓ gRPC server started successfully on {}", addr);
+        println!("Server will remain running in the background.");
+    }
+
+    //  println!("README generation completed.\n{:?}", _readme);
     ChatState::PromptUser {
         skip_printing_tools: true,
     }
+
+    //TODO: Should start the codebase analysis process here after generating README
 }
 
-pub async fn generate_readme(dir: &str) -> String {
+async fn generate_or_update_readme(dir: &str) -> String {
     let prompt = format!(
         "
- You are a professional code analysis expert tasked with creating a README.md document for a GitHub repository. Your goal is to analyze the content of the repository based on the provided catalogue structure and generate a high-quality README that highlights the project's key features and follows the style of advanced open-source projects on GitHub.
+You are a professional code analysis expert tasked with creating a README.md document for a GitHub repository. Your goal is to analyze the content of the repository based on the provided catalogue structure and generate a high-quality README that highlights the project's key features and follows the style of advanced open-source projects on GitHub.
 
 Here is the catalogue structure of the repository:
 
@@ -136,11 +185,45 @@ Provide your final README.md content within <readme> tags. Include no explanatio
     );
     let chat_args = ChatArgs::default();
 
-    let mut api_session = ChatSession::new(chat_args).await.unwrap();
+    let mut api_session: ChatSession = ChatSession::new(chat_args).await.unwrap();
 
     let response = api_session.send_message(prompt).await.unwrap();
 
     println!("Received response from API: {}", response);
 
-    "".to_string()
+    response
+}
+
+async fn create_grpc_server() -> Result<ServerHandle, Box<dyn std::error::Error>> {
+    // 1. Get configuration
+    let grpc_host = env::var("GRPC_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let grpc_port = env::var("GRPC_PORT")
+        .unwrap_or_else(|_| "50051".to_string())
+        .parse::<u16>()
+        .unwrap_or(50051);
+
+    // 2. Spawn gRPC server
+    println!(
+        "Starting local gRPC server on {:?}:{:?}...",
+        grpc_host, grpc_port
+    );
+    let server_handle = grpc::spawn_server(&grpc_host, grpc_port).await;
+    //  let server_addr = server_handle.unwrap().address();
+
+    server_handle
+}
+
+/// Shutdown the gRPC server if it's running
+pub async fn shutdown_server() -> Result<(), Box<dyn std::error::Error>> {
+    let mut handle_guard = SERVER_HANDLE.lock().await;
+
+    if let Some(handle) = handle_guard.take() {
+        println!("Shutting down gRPC server...");
+        handle.shutdown().await?;
+        println!("✓ gRPC server stopped successfully.");
+        Ok(())
+    } else {
+        // Server not running, no output needed
+        Ok(())
+    }
 }

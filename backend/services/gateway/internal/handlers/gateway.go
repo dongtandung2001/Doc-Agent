@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"log"
 
 	"connectrpc.com/connect"
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
@@ -99,6 +100,7 @@ func (h *GatewayHandler) HealthCheck(
 	// Check Local Agent (skip if nil)
 	if h.localAgentClient != nil {
 		if _, err := h.localAgentClient.HealthCheck(ctx, req.Msg); err != nil {
+			log.Printf("Local Agent HealthCheck error: %v", err)
 			return connect.NewResponse(&apiv1.HealthCheckResponse{IsAlive: false}), nil
 		}
 	}

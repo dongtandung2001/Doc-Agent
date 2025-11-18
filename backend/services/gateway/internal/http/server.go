@@ -10,9 +10,9 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 
-	"github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1/protov1connect"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/config"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/gateway/internal/handlers"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1/protov1connect"
 )
 
 type Server struct {
@@ -44,6 +44,8 @@ func NewServer(
 	// Mount Connect-Go GatewayService handler
 	// All Connect handlers are in the protov1connect package
 	gatewayPath, gatewayHdlr := protov1connect.NewGatewayServiceHandler(gatewayHandler)
+
+	log.Printf("Mounting GatewayService at path: %s, %s", gatewayPath, gatewayHandler)
 
 	// Mount the gateway handler to respond to all Connect-Go requests
 	app.All(gatewayPath+"*", adaptor.HTTPHandler(gatewayHdlr))

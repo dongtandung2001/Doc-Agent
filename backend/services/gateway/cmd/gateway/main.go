@@ -20,23 +20,27 @@ func main() {
 	}
 
 	// Initialize gRPC clients to all backend services
-	// localAgentClient, err := clients.NewLocalAgentClient(
-	// 	cfg.Backends.LocalAgentService.Host,
-	// 	cfg.Backends.LocalAgentService.Port,
-	// )
-	// if err != nil {
-	// 	log.Fatalf("Failed to connect to local agent service: %v", err)
-	// }
-	// defer localAgentClient.Close()
-
-	codebaseClient, err := clients.NewCodebaseClient(
-		cfg.Backends.CodebaseService.Host,
-		cfg.Backends.CodebaseService.Port,
+	localAgentClient, err := clients.NewLocalAgentClient(
+		cfg.Backends.LocalAgentService.Host,
+		cfg.Backends.LocalAgentService.Port,
 	)
 	if err != nil {
-		log.Fatalf("Failed to connect to codebase analysis service: %v", err)
+		log.Printf("Failed to connect to local agent service: %v", err)
+	} else {
+		log.Printf("Connected to Local Agent Service at %s:%d", cfg.Backends.LocalAgentService.Host, cfg.Backends.LocalAgentService.Port)
 	}
-	defer codebaseClient.Close()
+	defer localAgentClient.Close()
+
+	// codebaseClient, err := clients.NewCodebaseClient(
+	// 	cfg.Backends.CodebaseService.Host,
+	// 	cfg.Backends.CodebaseService.Port,
+	// )
+	// if err != nil {
+	// 	log.Printf("Failed to connect to codebase analysis service: %v", err)
+	// } else {
+	// 	log.Printf("Connected to Codebase Analysis Service at %s:%d", cfg.Backends.CodebaseService.Host, cfg.Backends.CodebaseService.Port)
+	// }
+	// defer codebaseClient.Close()
 
 	// databaseClient, err := clients.NewDatabaseClient(
 	// 	"localhost", // TODO: Get from config
@@ -59,8 +63,8 @@ func main() {
 	// Initialize gateway handler (proxies to all backend services)
 	// Pass the underlying gRPC clients using GetClient()
 	gatewayHandler := handlers.NewGatewayHandler(
+		localAgentClient.GetClient(),
 		nil,
-		codebaseClient.GetClient(),
 		nil,
 		nil,
 	)
