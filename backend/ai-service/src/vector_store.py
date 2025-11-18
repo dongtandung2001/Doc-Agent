@@ -1,9 +1,12 @@
+# Patch sqlite3 before importing ChromaDB
+import src.sqlite_patch  # noqa: F401
+
 from typing import List, Dict, Optional
 from langchain_openai import OpenAIEmbeddings
 from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from config import Config
-from logger import setup_logger
+from src.config import Config
+from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 

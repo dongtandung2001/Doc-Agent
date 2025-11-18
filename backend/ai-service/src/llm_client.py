@@ -2,8 +2,8 @@
 # llm_client.py
 from typing import List, Dict, Optional, Tuple
 from openai import OpenAI
-from config import Config
-from logger import setup_logger
+from src.config import Config
+from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 

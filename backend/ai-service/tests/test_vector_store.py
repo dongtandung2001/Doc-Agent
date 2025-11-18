@@ -1,7 +1,12 @@
 # tests/test_vector_store.py
+import sys
+from pathlib import Path
 import pytest
 from unittest.mock import Mock, patch
-from vector_store import VectorStoreManager
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.vector_store import VectorStoreManager
 
 @pytest.fixture
 def vector_store():

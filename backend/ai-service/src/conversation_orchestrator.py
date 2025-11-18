@@ -1,9 +1,9 @@
 
 # conversation_orchestrator.py
 from typing import List, Dict, Tuple, Optional
-from llm_client import LLMClient
-from vector_store import VectorStoreManager
-from logger import setup_logger
+from src.llm_client import LLMClient
+from src.vector_store import VectorStoreManager
+from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 

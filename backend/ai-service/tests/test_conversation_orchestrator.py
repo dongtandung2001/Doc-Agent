@@ -1,5 +1,10 @@
+import sys
+from pathlib import Path
 import pytest
-from conversation_orchestrator import ConversationOrchestrator
+
+# Add parent directory to path
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from src.conversation_orchestrator import ConversationOrchestrator
 
 
 @pytest.fixture

@@ -6,8 +6,12 @@ import os
 from dotenv import load_dotenv
 
 # Import generated protobuf files
-import ai_service_pb2
-import ai_service_pb2_grpc
+from pathlib import Path
+
+# Add parent directory to path for imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import generated.ai_service_pb2 as ai_service_pb2
+import generated.ai_service_pb2_grpc as ai_service_pb2_grpc
 
 # Load environment variables
 load_dotenv()

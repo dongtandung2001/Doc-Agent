@@ -26,7 +26,9 @@ pip install -r requirements.txt
 
 3. Generate gRPC code from proto file:
 ```bash
-python -m grpc_tools.protoc -I./protos --python_out=. --grpc_python_out=. ./protos/ai_service.proto
+bash scripts/generate_grpc.sh
+# Or manually:
+python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/ai_service.proto
 ```
 
 4. Configure environment variables:

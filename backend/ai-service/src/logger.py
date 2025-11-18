@@ -1,7 +1,7 @@
 # logger.py
 import logging
 import sys
-from config import Config
+from src.config import Config
 
 def setup_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)

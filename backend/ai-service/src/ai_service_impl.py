@@ -1,13 +1,18 @@
 
 # ai_service_impl.py
 import grpc
+import sys
 from typing import List
-# Import generated protobuf files
-import ai_service_pb2
-import ai_service_pb2_grpc
-from conversation_orchestrator import ConversationOrchestrator
-from config import Config
-from logger import setup_logger
+from pathlib import Path
+
+# Add parent directory to path for generated imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import generated.ai_service_pb2 as ai_service_pb2
+import generated.ai_service_pb2_grpc as ai_service_pb2_grpc
+
+from src.conversation_orchestrator import ConversationOrchestrator
+from src.config import Config
+from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 

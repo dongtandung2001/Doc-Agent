@@ -2,7 +2,10 @@
 """Client and server classes corresponding to protobuf-defined services."""
 import grpc
 
-import ai_service_pb2 as ai__service__pb2
+try:
+    import generated.ai_service_pb2 as ai__service__pb2
+except ImportError:
+    import ai_service_pb2 as ai__service__pb2
 
 
 class AIServiceStub(object):

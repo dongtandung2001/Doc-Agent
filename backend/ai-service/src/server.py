@@ -1,11 +1,16 @@
 from concurrent import futures
 
 import grpc
-import ai_service_pb2_grpc
+import sys
+from pathlib import Path
 
-from ai_service_impl import AIServiceServicer
-from config import Config
-from logger import setup_logger
+# Add parent directory to path for generated imports
+sys.path.insert(0, str(Path(__file__).parent.parent))
+import generated.ai_service_pb2_grpc as ai_service_pb2_grpc
+
+from src.ai_service_impl import AIServiceServicer
+from src.config import Config
+from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 
