@@ -1,22 +1,11 @@
 use std::env;
-use std::sync::Arc;
-use tokio::sync::Mutex;
-use once_cell::sync::Lazy;
 
-use crate::cli::chat::tools::Tool;
 use crate::cli::chat::ChatArgs;
 use crate::cli::chat::ChatSession;
 
-use crate::grpc::server as grpc;
-use crate::grpc::server::ServerHandle;
+use crate::grpc::server;
 
 use super::super::super::ChatState;
-
-use super::super::super::tools;
-
-// Global server handle to keep the gRPC server alive
-static SERVER_HANDLE: Lazy<Arc<Mutex<Option<ServerHandle>>>> =
-    Lazy::new(|| Arc::new(Mutex::new(None)));
 
 pub async fn execute(path: &str) -> ChatState {
     println!("Starting document generation...");
@@ -45,12 +34,7 @@ pub async fn execute(path: &str) -> ChatState {
     //  let _readme = generate_or_update_readme(&dir).await;
 
     // Check if server is already running
-    let server_already_running = {
-        let handle_guard = SERVER_HANDLE.lock().await;
-        handle_guard.is_some()
-    };
-
-    if server_already_running {
+    if server::is_server_running().await {
         println!("gRPC server is already running.");
     } else {
         // Create server and extract result in a scope to ensure it's dropped before next await
@@ -74,7 +58,7 @@ pub async fn execute(path: &str) -> ChatState {
         }; // server_result is dropped here
 
         // Store handle in global variable to keep server alive
-        *SERVER_HANDLE.lock().await = Some(handle);
+        server::set_global_server(handle).await;
         println!("✓ gRPC server started successfully on {}", addr);
         println!("Server will remain running in the background.");
     }
@@ -194,7 +178,7 @@ Provide your final README.md content within <readme> tags. Include no explanatio
     response
 }
 
-async fn create_grpc_server() -> Result<ServerHandle, Box<dyn std::error::Error>> {
+async fn create_grpc_server() -> Result<server::ServerHandle, Box<dyn std::error::Error>> {
     // 1. Get configuration
     let grpc_host = env::var("GRPC_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let grpc_port = env::var("GRPC_PORT")
@@ -207,23 +191,8 @@ async fn create_grpc_server() -> Result<ServerHandle, Box<dyn std::error::Error>
         "Starting local gRPC server on {:?}:{:?}...",
         grpc_host, grpc_port
     );
-    let server_handle = grpc::spawn_server(&grpc_host, grpc_port).await;
+    let server_handle = server::spawn_server(&grpc_host, grpc_port).await;
     //  let server_addr = server_handle.unwrap().address();
 
     server_handle
-}
-
-/// Shutdown the gRPC server if it's running
-pub async fn shutdown_server() -> Result<(), Box<dyn std::error::Error>> {
-    let mut handle_guard = SERVER_HANDLE.lock().await;
-
-    if let Some(handle) = handle_guard.take() {
-        println!("Shutting down gRPC server...");
-        handle.shutdown().await?;
-        println!("✓ gRPC server stopped successfully.");
-        Ok(())
-    } else {
-        // Server not running, no output needed
-        Ok(())
-    }
 }

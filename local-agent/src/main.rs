@@ -1,7 +1,7 @@
 use clap::Parser;
 use crossterm::style::Stylize;
 use eyre::Result;
-use std::{env, process::ExitCode};
+use std::process::ExitCode;
 
 mod api;
 mod cli;
@@ -39,8 +39,10 @@ fn main() -> Result<ExitCode> {
     let result = runtime.block_on(async {
         let exit_result = parsed.execute().await;
 
-        // Always cleanup before exiting
-        local_agent::cleanup().await;
+        // Always cleanup gRPC server before exiting
+        if let Err(e) = grpc::server::shutdown_global_server().await {
+            eprintln!("Error shutting down gRPC server: {}", e);
+        }
 
         exit_result
     });

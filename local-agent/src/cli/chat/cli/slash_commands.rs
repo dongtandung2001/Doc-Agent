@@ -5,14 +5,6 @@ use super::super::ChatState;
 use std::future::Future;
 use std::pin::Pin;
 
-/// Shutdown the gRPC server if it's running
-/// This should be called when the program exits
-pub async fn shutdown_grpc_server() {
-    if let Err(e) = doc_gen::shutdown_server().await {
-        eprintln!("Error shutting down gRPC server: {}", e);
-    }
-}
-
 /// Parse and execute a slash command
 /// Returns Some(ChatState) if the input is a valid slash command, None otherwise
 pub fn parse_and_execute<'a>(

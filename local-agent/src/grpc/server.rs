@@ -1,9 +1,16 @@
 use tonic::transport::Server;
 use tokio::task::JoinHandle;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use tokio::sync::Mutex;
+use once_cell::sync::Lazy;
 
 use crate::grpc::proto::local_agent_service_server::LocalAgentServiceServer;
 use crate::grpc::service::LocalAgentServiceImpl;
+
+// Global server handle to keep the gRPC server alive
+static GLOBAL_SERVER_HANDLE: Lazy<Arc<Mutex<Option<ServerHandle>>>> =
+    Lazy::new(|| Arc::new(Mutex::new(None)));
 
 pub struct ServerHandle {
     address: SocketAddr,
@@ -54,4 +61,30 @@ pub async fn spawn_server(
         shutdown_tx,
         task_handle,
     })
+}
+
+/// Check if the global gRPC server is already running
+pub async fn is_server_running() -> bool {
+    let handle_guard = GLOBAL_SERVER_HANDLE.lock().await;
+    handle_guard.is_some()
+}
+
+/// Set the global gRPC server handle
+pub async fn set_global_server(handle: ServerHandle) {
+    *GLOBAL_SERVER_HANDLE.lock().await = Some(handle);
+}
+
+/// Shutdown the global gRPC server if it's running
+pub async fn shutdown_global_server() -> Result<(), Box<dyn std::error::Error>> {
+    let mut handle_guard = GLOBAL_SERVER_HANDLE.lock().await;
+
+    if let Some(handle) = handle_guard.take() {
+        println!("Shutting down gRPC server...");
+        handle.shutdown().await?;
+        println!("✓ gRPC server stopped successfully.");
+        Ok(())
+    } else {
+        // Server not running, no output needed
+        Ok(())
+    }
 }
