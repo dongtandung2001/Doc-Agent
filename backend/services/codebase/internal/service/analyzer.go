@@ -2,11 +2,12 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"log"
 
+	pipeline "github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/pipeline"
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
+	chatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
 )
 
 type AnalysisService struct {
@@ -29,34 +30,17 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	req *apiv1.StartCodebaseAnalysisRequest,
 ) (*apiv1.StartCodebaseAnalysisResponse, error) {
 	log.Printf("Starting codebase analysis with project structure: %s", req.ProjectStructure)
+	// init chat context
+	chatCtx := chatContext.NewContext()
+	// Step 1: Classify the repository
+	classification, err := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
 
-	// 1. Parse the project structure JSON
-	var projectStructure map[string]interface{}
-	if err := json.Unmarshal([]byte(req.ProjectStructure), &projectStructure); err != nil {
-		return &apiv1.StartCodebaseAnalysisResponse{Success: false}, err
+	// Handle error
+	if err != nil {
+		log.Printf("Error classifying repository: %v", err)
+		return nil, err
 	}
-
-	// 2. Analyze codebase structure and classify the project
-	//    - Send project structure + overview to LLM
-	//    - LLM generates documentation sections, subsections, and instructions
-	//    Example instruction:
-	//    {
-	//      "Id": "getting-started",
-	//      "Title": "Getting Started",
-	//      "Instruction": "Help users understand and start using the project",
-	//      "IsCompleted": false,
-	//      "Order": 0
-	//    }
-
-	// 3. Enqueue all instructions to Message Queue (RabbitMQ/Kafka)
-	//    for Document Generation service to process in parallel
-	//
-	//    TODO: Implement message queue producer
-	//    for _, instruction := range instructions {
-	//        messageQueue.Publish("doc-generation-tasks", instruction)
-	//    }
-
-	log.Println("Codebase analysis started and tasks enqueued successfully")
+	log.Printf("Repository classified as: %s", classification)
 
 	return &apiv1.StartCodebaseAnalysisResponse{Success: true}, nil
 }

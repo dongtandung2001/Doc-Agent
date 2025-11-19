@@ -18,7 +18,8 @@ service CodebaseAnalysisService {
 
 // StartCodebaseAnalysis
 message StartCodebaseAnalysisRequest {
-  string project_structure = 1; // JSON string containing project structure from local agent
+  string project_structure = 1; // compacted string containing project structure from local agent
+  string readme_content = 2;
 }
 
 message StartCodebaseAnalysisResponse {

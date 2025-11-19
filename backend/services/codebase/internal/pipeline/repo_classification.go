@@ -1,11 +1,17 @@
 package pipeline
 
 import (
+	"context"
 	"log"
 	"os"
+	"time"
+
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
+	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
+	ctx "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
 )
 
-func classify_repo(projectStructure string) (string, error) {
+func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient) (string, error) {
 	// Construct the prompt for classification
 	prompt, err := os.ReadFile("../prompts/classfication_prompt.md")
 
@@ -14,7 +20,17 @@ func classify_repo(projectStructure string) (string, error) {
 		return "", err
 	}
 
+	messages := []*apiv1.ChatMessage{}
+
+	chatRequest := aiClient.PrepareChatRequest(messages, &chatContext, string(prompt), true)
+
 	log.Printf("prompt: %s", prompt)
 
-	return "", nil
+	// In your gRPC client call
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	classfication, err := aiClient.Chat(ctx, chatRequest)
+
+	return classfication.Content, err	
 }

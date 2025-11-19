@@ -39,7 +39,7 @@ pub async fn execute(path: &str) -> ChatState {
     } else {
         // Create server and extract result in a scope to ensure it's dropped before next await
         let (handle, addr) = {
-            let server_result = create_grpc_server().await;
+            let server_result = start_grpc_server().await;
 
             // Extract result immediately to avoid holding it across await
             match server_result {
@@ -178,7 +178,7 @@ Provide your final README.md content within <readme> tags. Include no explanatio
     response
 }
 
-async fn create_grpc_server() -> Result<server::ServerHandle, Box<dyn std::error::Error>> {
+async fn start_grpc_server() -> Result<server::ServerHandle, Box<dyn std::error::Error>> {
     // 1. Get configuration
     let grpc_host = env::var("GRPC_HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
     let grpc_port = env::var("GRPC_PORT")
