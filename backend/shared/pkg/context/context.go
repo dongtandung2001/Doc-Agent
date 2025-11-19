@@ -23,3 +23,7 @@ func (c *ChatContext) Get(key string) (interface{}, bool) {
 	val, exists := c.variables[key]
 	return val, exists
 }
+
+func (c *ChatContext) Clear() {
+	c.variables = make(map[string]interface{})
+}

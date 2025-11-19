@@ -32,13 +32,28 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	log.Printf("Starting codebase analysis with project structure: %s", req.ProjectStructure)
 	// init chat context
 	chatCtx := chatContext.NewContext()
+	// get req
+	projectStructure := req.GetProjectStructure()
+	readmeContent := req.GetReadmeContent()
+	// set chat context
+	chatCtx.Set("category", projectStructure)
+	chatCtx.Set("readme", readmeContent)
 	// Step 1: Classify the repository
-	classification, err := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
+	classification, _ := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
+
+	// Clear the chatContext for next use
+	chatCtx.Clear()
+
+	// set the classification result to chat context
+	chatCtx.Set("classification", classification)
+	chatCtx.Set("code_files", projectStructure)
+	// Step 2: Generate instructions based on classification
+	_, err2 := pipeline.GenerateInstruction(*chatCtx, s.aiClient)
 
 	// Handle error
-	if err != nil {
-		log.Printf("Error classifying repository: %v", err)
-		return nil, err
+	if err2 != nil {
+		log.Printf("Error generating instructions: %v", err2)
+		return nil, err2
 	}
 	log.Printf("Repository classified as: %s", classification)
 

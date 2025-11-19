@@ -32,5 +32,7 @@ func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient) (stri
 
 	classfication, err := aiClient.Chat(ctx, chatRequest)
 
-	return classfication.Content, err	
+	log.Printf("RepoClassification: classification: %s", classfication.Content)
+
+	return classfication.Content, err
 }
