@@ -1,5 +1,6 @@
 use eyre::Result;
 use serde_json::json;
+use std::path::PathBuf;
 use tokio::sync::broadcast;
 use tracing::error;
 
@@ -30,10 +31,16 @@ pub struct ChatSession {
 
     /// Ctrl+C channel
     ctrlc_rx: broadcast::Receiver<()>,
+
+    /// Root directory where the chat session was spawned
+    root_dir: PathBuf,
 }
 
 impl ChatSession {
     pub async fn new(args: ChatArgs) -> Result<Self> {
+        // Get current working directory
+        let root_dir = std::env::current_dir()?;
+
         // Debug: print the loaded configuration
         eprintln!("Debug - API Configuration:");
         eprintln!("  URL: {}", args.api_url);
@@ -46,6 +53,7 @@ impl ChatSession {
             }
         );
         eprintln!("  Model: {}", args.model);
+        eprintln!("  Root Directory: {}", root_dir.display());
 
         // Set up Ctrl+C handler
         let (ctrlc_tx, ctrlc_rx) = broadcast::channel(4);
@@ -69,7 +77,37 @@ impl ChatSession {
             tool_manager: ToolManager::new(args.trust_all_tools),
             api_client: ApiClient::new(&args.api_url, &args.api_key, &args.model)?,
             ctrlc_rx,
+            root_dir,
         })
+    }
+
+    /// Send a message programmatically (bypasses CLI input)
+    ///
+    /// This runs the same state machine logic as the interactive loop,
+    /// but starts with the provided message instead of prompting the user.
+    /// When it reaches PromptUser state, it transitions to Exit and stops.
+    /// Returns the final LLM response.
+    pub async fn send_message(&mut self, message: String) -> Result<String> {
+        // Start with HandleInput state instead of PromptUser
+        self.inner = Some(ChatState::HandleInput { input: message });
+
+        // Run state machine until completion
+        while !matches!(self.inner, Some(ChatState::Exit)) {
+            // Check if we reached PromptUser - if so, exit
+            if matches!(self.inner, Some(ChatState::PromptUser { .. })) {
+                self.inner = Some(ChatState::Exit);
+                break;
+            }
+
+            self.next().await?;
+        }
+        // Get the last message from conversation (should always be Assistant)
+        let response = match self.conversation.messages().last() {
+            Some(super::message::Message::Assistant { content }) => content.clone(),
+            _ => return Err(eyre::eyre!("Expected last message to be from Assistant")),
+        };
+
+        Ok(response)
     }
 
     /// Main chat loop
@@ -152,7 +190,6 @@ impl ChatSession {
                 return Ok(());
             }
         };
-
         // Transition to next state
         match result {
             Ok(next_state) => {
@@ -180,7 +217,10 @@ impl ChatSession {
 
     async fn handle_input(&mut self, input: String) -> Result<ChatState> {
         // Check for slash commands
-        if let Some(state) = slash_commands::parse_and_execute(&input) {
+        let root_dir_str = self.root_dir.to_str().unwrap_or(".");
+        if let Some(state) =
+            slash_commands::parse_and_execute(&input, root_dir_str, &self.api_client).await
+        {
             return Ok(state);
         }
 
@@ -276,12 +316,12 @@ impl ChatSession {
         // Execute tools and get results
         let results = self.tool_manager.execute_all(tools).await;
 
+        println!("Tools executed.\n");
+        println!("Final result: {:?}", results);
         // Add tool results to conversation
         for result in results {
             self.conversation.add(result);
         }
-
-        println!("Tools executed.\n");
 
         // Continue the conversation with tool results
         Ok(ChatState::HandleResponse {

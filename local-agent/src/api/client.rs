@@ -20,6 +20,40 @@ impl ApiClient {
         })
     }
 
+    /// Call API gateway to start codebase analysis
+    pub async fn start_codebase_analysis(&self, request_body: Value) -> Result<Value> {
+        let endpoint = std::env::var("GATEWAY_ANALYSIS_ENDPOINT")
+            .expect("GATEWAY_ANALYSIS_ENDPOINT environment variable not set");
+
+        eprintln!(
+            "[DEBUG] Gateway - Request body: {}",
+            serde_json::to_string_pretty(&request_body)?
+        );
+
+        let response = self
+            .client
+            .post(&endpoint)
+            .header("Content-Type", "application/json")
+            .header("Accept", "application/json")
+            .json(&request_body)
+            .send()
+            .await?;
+
+        if !response.status().is_success() {
+            let status = response.status();
+            let text = response.text().await?;
+            eyre::bail!("Gateway API error {}: {}", status, text);
+        }
+
+        let json: Value = response.json().await?;
+        eprintln!(
+            "[DEBUG] Gateway Response: {}",
+            serde_json::to_string_pretty(&json)?
+        );
+
+        Ok(json)
+    }
+
     /// Send chat request and return JSON response
     pub async fn send_message(&self, messages: Vec<Value>, tools: Vec<Value>) -> Result<Value> {
         // eprintln!("[DEBUG] ApiClient - Endpoint: {}", self.endpoint);
@@ -35,7 +69,10 @@ impl ApiClient {
             "tool_choice": if tools.is_empty() { json!("none") } else { json!("auto") }
         });
 
-        // eprintln!("[DEBUG] ApiClient - Request body: {}", serde_json::to_string_pretty(&request_body)?);
+        eprintln!(
+            "[DEBUG] ApiClient - Request body: {}",
+            serde_json::to_string_pretty(&request_body)?
+        );
 
         let response = self
             .client
@@ -55,7 +92,10 @@ impl ApiClient {
 
         // Parse JSON response
         let json: Value = response.json().await?;
-        eprintln!("[DEBUG] API Response: {}", serde_json::to_string_pretty(&json)?);
+        eprintln!(
+            "[DEBUG] API Response: {}",
+            serde_json::to_string_pretty(&json)?
+        );
 
         Ok(json)
     }

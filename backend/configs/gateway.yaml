@@ -12,6 +12,9 @@ backends:
   ai:
     host: "localhost"
     port: 9003
+  local_agent:
+    host: "localhost"
+    port: 9004
 
 redis:
   host: "localhost"

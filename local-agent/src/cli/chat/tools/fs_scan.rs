@@ -15,7 +15,9 @@ struct FsScanArgs {
     max_depth: usize,
 }
 
-fn default_depth() -> usize { 1 }
+fn default_depth() -> usize {
+    1
+}
 
 #[async_trait]
 impl Tool for FsScanTool {
@@ -64,12 +66,14 @@ fn scan_dir<'a>(
     path: &'a str,
     depth: usize,
     max_depth: usize,
-    result: &'a mut Vec<String>
+    result: &'a mut Vec<String>,
 ) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<()>> + Send + 'a>> {
     Box::pin(async move {
         if depth > max_depth {
             return Ok(());
         }
+
+        println!("scan max_depth: {}", max_depth);
 
         let mut entries = fs::read_dir(path).await?;
         let indent = "  ".repeat(depth);
@@ -79,13 +83,15 @@ fn scan_dir<'a>(
             let name = entry.file_name();
             let metadata = entry.metadata().await?;
 
-            let icon = if metadata.is_dir() { "[DIR]" } else { "[FILE]" };
+            let icon = if metadata.is_dir() { "[D]" } else { "[F]" };
             result.push(format!("{}{} {}", indent, icon, name.to_string_lossy()));
 
             if metadata.is_dir() && depth < max_depth {
                 scan_dir(path.to_str().unwrap(), depth + 1, max_depth, result).await?;
             }
         }
+
+        println!("Scanned directory: {:?}", result);
 
         Ok(())
     })

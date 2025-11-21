@@ -3,9 +3,8 @@ use crossterm::style::Stylize;
 use eyre::Result;
 use std::process::ExitCode;
 
-mod api;
-mod cli;
-mod util;
+use local_agent::cli;
+use local_agent::grpc::server;
 
 fn main() -> Result<ExitCode> {
     // Load .env file if it exists (ignore if not found)
@@ -34,7 +33,17 @@ fn main() -> Result<ExitCode> {
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()?;
-    let result = runtime.block_on(parsed.execute());
+
+    let result = runtime.block_on(async {
+        let exit_result = parsed.execute().await;
+
+        // Always cleanup gRPC server before exiting
+        if let Err(e) = server::shutdown_global_server().await {
+            eprintln!("Error shutting down gRPC server: {}", e);
+        }
+
+        exit_result
+    });
 
     match result {
         Ok(exit_code) => Ok(exit_code),

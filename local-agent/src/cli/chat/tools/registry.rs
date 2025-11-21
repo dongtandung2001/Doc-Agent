@@ -44,6 +44,7 @@ impl ToolRegistry {
 
         registry.register(Box::new(super::fs_read::FsReadTool));
         registry.register(Box::new(super::fs_scan::FsScanTool));
+        registry.register(Box::new(super::ignore_scan::IgnoreScanTool));
 
         registry
     }
