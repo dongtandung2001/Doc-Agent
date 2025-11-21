@@ -1,6 +1,8 @@
 mod doc_gen;
 mod quit;
 
+use crate::api::ApiClient;
+
 use super::super::ChatState;
 use std::future::Future;
 use std::pin::Pin;
@@ -10,6 +12,7 @@ use std::pin::Pin;
 pub fn parse_and_execute<'a>(
     input: &'a str,
     root_dir: &'a str,
+    api_client: &'a ApiClient,
 ) -> Pin<Box<dyn Future<Output = Option<ChatState>> + Send + 'a>> {
     Box::pin(async move {
         let trimmed = input.trim();
@@ -24,7 +27,7 @@ pub fn parse_and_execute<'a>(
 
         match command_name {
             "quit" | "exit" | "q" => Some(quit::execute()),
-            "init" | "start" | "doc_generation" => Some(doc_gen::execute(root_dir).await),
+            "init" | "start" | "doc_generation" => Some(doc_gen::execute(root_dir, api_client).await),
             _ => None,
         }
     })

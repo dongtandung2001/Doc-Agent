@@ -3,35 +3,43 @@ use std::env;
 use crate::cli::chat::ChatArgs;
 use crate::cli::chat::ChatSession;
 
+use crate::cli::chat::tools;
+use crate::cli::chat::tools::Tool;
 use crate::grpc::server;
 
 use super::super::super::ChatState;
+use crate::api::ApiClient;
 
-pub async fn execute(path: &str) -> ChatState {
+struct StartCodebaseAnalysisResponse {
+    success: bool,
+}
+
+use crate::grpc::proto::ChatMessage;
+pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     println!("Starting document generation...");
     println!("Please keep the agent running while documents are being generated.");
 
-    //  // scan directory with gitignore support as part of doc generation
-    //  let scan_tool = tools::IgnoreScanTool;
-    //  let args = serde_json::json!({ "path": path });
-    //  let res = scan_tool.invoke(args).await;
+    // scan directory with gitignore support as part of doc generation
+    let scan_tool = tools::IgnoreScanTool;
+    let args = serde_json::json!({ "path": path });
+    let res = scan_tool.invoke(args).await;
 
-    //  println!(
-    //      "Directory scan completed. Generating documents...\n{:?}",
-    //      res
-    //  );
+    println!(
+        "Directory scan completed. Generating documents...\n{:?}",
+        res,
+    );
 
-    //  let dir = match res {
-    //      Ok(d) => d,
-    //      Err(e) => {
-    //          println!("Error during directory scan: {}", e);
-    //          return ChatState::PromptUser {
-    //              skip_printing_tools: false,
-    //          };
-    //      }
-    //  };
+    let dir = match res {
+        Ok(d) => d,
+        Err(e) => {
+            println!("Error during directory scan: {}", e);
+            return ChatState::PromptUser {
+                skip_printing_tools: false,
+            };
+        }
+    };
 
-    //  let _readme = generate_or_update_readme(&dir).await;
+    let _readme = generate_or_update_readme(&dir).await;
 
     // Check if server is already running
     if server::is_server_running().await {
@@ -64,6 +72,32 @@ pub async fn execute(path: &str) -> ChatState {
     }
 
     //  println!("README generation completed.\n{:?}", _readme);
+    // call codebase anaylsis endpoint
+    let response = api_client
+        .start_codebase_analysis(serde_json::json!({
+            "root_dir": path,
+        }))
+        .await;
+
+    match response {
+        Ok(res) => {
+            // Check the success field in the JSON response
+            match res.get("success").and_then(|v| v.as_bool()) {
+                Some(true) => {
+                    println!("✓ Codebase analysis started successfully.");
+                }
+                Some(false) => {
+                    println!("✗ Codebase analysis failed.");
+                }
+                None => {
+                    println!("⚠ Invalid response format: {:?}", res);
+                }
+            }
+        }
+        Err(e) => {
+            println!("Failed to start codebase analysis: {}", e);
+        }
+    }
     ChatState::PromptUser {
         skip_printing_tools: true,
     }

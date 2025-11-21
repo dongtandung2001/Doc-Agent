@@ -218,7 +218,9 @@ impl ChatSession {
     async fn handle_input(&mut self, input: String) -> Result<ChatState> {
         // Check for slash commands
         let root_dir_str = self.root_dir.to_str().unwrap_or(".");
-        if let Some(state) = slash_commands::parse_and_execute(&input, root_dir_str).await {
+        if let Some(state) =
+            slash_commands::parse_and_execute(&input, root_dir_str, &self.api_client).await
+        {
             return Ok(state);
         }
 

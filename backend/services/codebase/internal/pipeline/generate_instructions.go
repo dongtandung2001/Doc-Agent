@@ -262,7 +262,7 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 	instructions, err := aiClient.Chat(ctx, chatRequest)
 	log.Printf("GenerateInstruction: Instructions: %s", instructions.Content)
 
-	return instructions.Content, err
+	return "Returned", err
 }
 
 func getProjectDescription(projectClassification string) string {
