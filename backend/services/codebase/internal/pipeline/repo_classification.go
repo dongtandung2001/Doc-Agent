@@ -30,6 +30,8 @@ func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatew
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
 
+	ctx = context.WithValue(ctx, clients.AgenticMode, false)
+	ctx = context.WithValue(ctx, clients.ToolChoiceKey, "none")
 	classfication, err := aiClient.Chat(ctx, chatRequest, gatewayClient)
 
 	if err != nil {

@@ -15,5 +15,6 @@ message HealthCheckResponse {
 message ChatMessage {
   string role = 1;    // "user" or "assistant"
   string content = 2; // The message content
+  optional string tool_call_id = 3;
 }
 

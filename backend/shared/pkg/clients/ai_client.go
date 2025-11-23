@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"net/http"
 	"os"
@@ -28,6 +29,7 @@ type ContextKey string
 const (
 	AgenticMode    ContextKey = "agentic_chat"
 	HTTPTimeoutKey ContextKey = "http_timeout"
+	ToolChoiceKey  ContextKey = "tool_choice"
 )
 
 // ToolCall represents a tool call from the API response
@@ -47,6 +49,14 @@ type ToolCallFunction struct {
 type ParsedResponse struct {
 	Content   string
 	ToolCalls []ToolCall
+}
+
+// ToolUse represents a parsed tool call ready for execution
+// Matches state.rs ToolUse structure
+type ToolUse struct {
+	ID   string                 // Tool call ID
+	Name string                 // Tool name
+	Args map[string]interface{} // Parsed arguments
 }
 
 // AIClient wraps either gRPC or HTTP chat API client
@@ -170,38 +180,49 @@ func (c *AIClient) GetToolChoice() string {
 	return "auto"
 }
 
-// ExecuteTool executes a tool with the given name and arguments
-// This method should be overridden by embedding AIClient in a custom struct
-// Default implementation returns an error
-func (c *AIClient) ExecuteTool(toolName string, arguments map[string]interface{}, gatewayClient *GatewayClient) (string, error) {
+// ExecuteTool executes a tool with the given name and file requests
+// For fs_read, it calls gatewayClient.RequestFileContent with the batch of files
+func (c *AIClient) ExecuteTool(toolName string, fileRequests []*apiv1.FileReadArg, gatewayClient *GatewayClient) ([]*apiv1.FileReadResult, error) {
 	if toolName == "fs_read" {
-		// Extract arguments
-		path, _ := arguments["path"].(string)
-		// Tool call id
-		tool_call_id, _ := arguments["tool_call_id"].(string)
-		fmt.Printf("[DEBUG] Executing fs_read tool (ID: %s) for path: %s\n", tool_call_id, path)
+		fmt.Printf("[DEBUG] Executing fs_read tool with %d files\n", len(fileRequests))
 
-		
+		// Call gateway to request file contents in batch
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 
-		return "", nil
+		req := &apiv1.RequestFileContentRequest{
+			Args: fileRequests,
+		}
+		response, err := gatewayClient.RequestFileContent(ctx, req)
+		if err != nil {
+			return nil, fmt.Errorf("failed to request file content: %w", err)
+		}
+
+		// Return the FileReadResult array directly
+		return response.Results, nil
 	}
-	return "", fmt.Errorf("tool execution not implemented: override ExecuteTool method")
+
+	return nil, fmt.Errorf("unknown tool: %s", toolName)
 }
 
 // Chat sends a chat request to the AI service (main orchestrator)
 // If context contains AgenticMode=true, it will run an agentic loop with tool execution
 func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClient *GatewayClient) (*apiv1.ChatResponse, error) {
 	// Check if agentic mode is enabled
-	isAgentic, _ := ctx.Value(AgenticMode).(bool)
+	isAgentic, ok := ctx.Value(AgenticMode).(bool)
+	log.Printf("AgenticMode: %v", isAgentic)
 
-	if !isAgentic {
+	if !ok || !isAgentic {
 		// Non-agentic mode: single request-response
+		log.Printf("Non-agentic mode: sending single chat request")
 		parsed, err := c.sendMessage(ctx, req)
 		if err != nil {
 			return nil, err
 		}
 		return &apiv1.ChatResponse{Content: parsed.Content}, nil
 	}
+
+	log.Printf("Agentic mode: starting agentic loop")
 
 	// Agentic mode: loop with tool execution
 
@@ -239,28 +260,48 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 
 		fmt.Printf("[DEBUG] Executing %d tools\n", len(parsed.ToolCalls))
 
-		// Execute each tool and collect results
-		for _, toolCall := range parsed.ToolCalls {
-			fmt.Printf("[DEBUG] Executing tool: %s (ID: %s)\n", toolCall.Function.Name, toolCall.ID)
+		// Step 1: Parse tool calls and build FileReadArg array directly
+		fileRequests := make([]*apiv1.FileReadArg, 0, len(parsed.ToolCalls))
 
+		for _, toolCall := range parsed.ToolCalls {
 			// Parse arguments JSON string to map
 			var args map[string]interface{}
 			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
 				return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
 			}
 
-			// Execute the tool using the client's ExecuteTool method
-			result, err := c.ExecuteTool(toolCall.Function.Name, args, gatewayClient)
-			if err != nil {
-				result = fmt.Sprintf("Error executing tool: %s", err.Error())
+			// Extract path (required)
+			path, ok := args["path"].(string)
+			if !ok {
+				fmt.Printf("[DEBUG] Warning: missing path for tool ID %s\n", toolCall.ID)
+				continue
 			}
 
-			// Add tool result as a message
-			toolResultMsg := &apiv1.ChatMessage{
-				Role:    "tool",
-				Content: fmt.Sprintf("[Tool: %s, ID: %s]\n%s", toolCall.Function.Name, toolCall.ID, result),
+			// Build FileReadArg using proto type
+			fileArg := &apiv1.FileReadArg{
+				Id:   toolCall.ID, // proto field 1
+				Path: path,        // proto field 2
 			}
-			currentMessages = append(currentMessages, toolResultMsg)
+
+			fileRequests = append(fileRequests, fileArg)
+		}
+
+		// Step 2: Execute all tools in batch via ExecuteTool
+		fmt.Printf("[DEBUG] Executing %d fs_read tools in batch\n", len(fileRequests))
+		fileResults, err := c.ExecuteTool("fs_read", fileRequests, gatewayClient)
+
+		// Step 3: Add file results to messages
+		if err != nil {
+			return nil, fmt.Errorf("tool execution error: %w", err)
+		} else {
+			// Iterate through FileReadResult array and add to messages
+			for _, result := range fileResults {
+				currentMessages = append(currentMessages, &apiv1.ChatMessage{
+					Role:       "tool",
+					Content:    result.Content,
+					ToolCallId: &result.Id,
+				})
+			}
 		}
 
 		// Continue loop with updated messages
@@ -291,7 +332,12 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 
 	// Get tools from client
 	tools := c.GetTools()
-	toolChoice := c.GetToolChoice()
+	toolChoice := ctx.Value(ToolChoiceKey)
+	if toolChoiceStr, ok := toolChoice.(string); ok {
+		toolChoice = toolChoiceStr
+	} else {
+		toolChoice = c.GetToolChoice()
+	}
 
 	// Build request body
 	reqBody := struct {
@@ -303,7 +349,7 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 		Model:      c.model,
 		Messages:   messages,
 		Tools:      tools,
-		ToolChoice: toolChoice,
+		ToolChoice: toolChoice.(string),
 	}
 
 	jsonData, _ := json.Marshal(reqBody)
