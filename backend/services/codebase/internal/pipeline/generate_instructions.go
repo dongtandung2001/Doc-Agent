@@ -9,6 +9,7 @@ import (
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 	ctx "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
+	utils "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/utils/prompt"
 )
 
 const APPLICATION_PROMPT = `
@@ -239,6 +240,11 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 	// Construct the prompt for classification
 	prompt, err := os.ReadFile("internal/prompts/generate_instruction.md")
 
+	// get project classification from chat context
+	projectClassification, _ := chatContext.Get("classification")
+	descriptionPrompt := getProjectDescription(projectClassification.(string))
+	chatContext.Set("projectType", descriptionPrompt)
+
 	if err != nil {
 		log.Printf("Error reading prompt file: %v", err)
 		return "", err
@@ -246,33 +252,9 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 	// multi-stage thinking process
 	messages := []*apiv1.ChatMessage{}
 
-	// 1st stage: repository analysis Determine project description based on classification
-	repo_analysis, err := generateRepositoryAnalysis(messages, chatContext, aiClient, string(prompt))
-	if err != nil {
-		log.Printf("Error in repository analysis: %v", err)
-		return "", err
-	}
-	// add this to messages history for next stage
+	// add system prompt
 	messages = append(messages, &apiv1.ChatMessage{
-		Role:    "assistant",
-		Content: repo_analysis,
-	})
-	log.Printf("Prompt after repo analysis: %s", messages)
-	// 2nd stage: generate final instructions
-	final_instructions, err := generateInstructionArrays(messages, aiClient)
-	if err != nil {
-		log.Printf("Error in final instruction generation: %v", err)
-		return "", err
-	}
-
-	return final_instructions, nil
-}
-
-func generateInstructionArrays(messages []*apiv1.ChatMessage, aiClient *clients.AIClient) (string, error) {
-	// add extra prompt to messages
-	history := []*apiv1.ChatMessage{}
-	history = append(history, &apiv1.ChatMessage{
-		Role: "assistant",
+		Role: "system",
 		Content: `
 			You are an AI assistant specialized in software engineering and code analysis. You assist users with repository analysis, documentation generation, code understanding, debugging, feature development, and other software development tasks. Use the instructions below and the tools available to you to assist the user.
 
@@ -325,20 +307,44 @@ func generateInstructionArrays(messages []*apiv1.ChatMessage, aiClient *clients.
 			Think thoroughly, considering all angles and implications of the user's request. Use the tools available to you to assist the user in the best way possible.
 		`,
 	})
-	history = append(history, messages...)
-	chatRequest := aiClient.PrepareChatRequest(history, &ctx.ChatContext{}, "", false)
-	log.Printf("Final generateInstruction prompt: %+v", chatRequest.Messages)
-	// Init ctx object
+
+	// 1st stage: repository analysis Determine project description based on classification
+	// 1st stage: repository analysis Determine project description based on classification
+	final_prompt := utils.ProcessTemplateVariables(string(prompt), &chatContext)
+
+	final_prompt += `
+	<system-reminder>
+		<catalog_tool_usage_guidelines>
+		**PARALLEL READ OPERATIONS**
+		- MANDATORY: Always perform PARALLEL fs_read calls — batch multiple files in a SINGLE message for maximum efficiency
+		- CRITICAL: Read MULTIPLE files simultaneously in one operation
+		- PROHIBITED: Sequential one-by-one file reads (inefficient and wastes context capacity)
+
+		For maximum efficiency, whenever you need to perform multiple independent operations, invoke all relevant tools simultaneously rather than sequentially.
+		The repository's directory structure has been provided in <code_files>. Please utilize the provided structure directly for file navigation and reading operations, rather than relying on glob patterns or filesystem traversal methods.
+		Below is an example of the directory structure of the warehouse, where /D represents a directory and /F represents a file:
+		server/D
+			src/D
+			Main/F
+		web/D
+			components/D
+			Header.tsx/F
+	</system-reminder>
+`
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
 
-	instructions, err := aiClient.Chat(ctx, chatRequest)
+	req := aiClient.PrepareChatRequest(messages, &chatContext, final_prompt, false)
+
+	instructions, err := aiClient.Chat(ctx, req)
+
 	if err != nil {
 		log.Printf("Error Generating instructions: %v", err)
 		return "", err
 	}
 	log.Printf("GenerateInstruction: Instructions: %s", instructions)
-	return "success", nil
+
+	return "sucess", nil
 }
 
 // repo analysis stage

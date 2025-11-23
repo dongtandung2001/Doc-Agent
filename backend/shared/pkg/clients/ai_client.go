@@ -11,6 +11,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"time"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	ChatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
@@ -20,6 +21,35 @@ import (
 )
 
 var templateVarRegex = regexp.MustCompile(`\{\{\$([a-zA-Z0-9_]+)\}\}`)
+
+// Context keys for metadata
+type contextKey string
+
+const (
+	tools          contextKey = "tools"
+	toolChoice     contextKey = "tool_choice"
+	agentic        contextKey = "agentic_chat"
+	httpTimeoutKey contextKey = "http_timeout"
+)
+
+// ToolCall represents a tool call from the API response
+type ToolCall struct {
+	ID       string           `json:"id"`
+	Type     string           `json:"type"`
+	Function ToolCallFunction `json:"function"`
+}
+
+// ToolCallFunction represents the function details in a tool call
+type ToolCallFunction struct {
+	Name      string `json:"name"`
+	Arguments string `json:"arguments"` // JSON string
+}
+
+// ParsedResponse represents parsed API response with tools support
+type ParsedResponse struct {
+	Content   string
+	ToolCalls []ToolCall
+}
 
 // AIClient wraps either gRPC or HTTP chat API client
 type AIClient struct {
@@ -50,9 +80,14 @@ func NewAIClient(host string, port int) (*AIClient, error) {
 			return nil, fmt.Errorf("HTTP mode requires CHAT_API_URL, CHAT_API_KEY, CHAT_MODEL env vars")
 		}
 
+		// Use a longer timeout for AI API calls (5 minutes default)
+		httpClient := &http.Client{
+			Timeout: 5 * time.Minute,
+		}
+
 		fmt.Printf("Successfully created AIClient in HTTP mode with URL: %s\n", apiURL)
 		return &AIClient{
-			httpClient: &http.Client{},
+			httpClient: httpClient,
 			apiURL:     apiURL,
 			apiKey:     apiKey,
 			model:      model,
@@ -98,44 +133,104 @@ func (c *AIClient) PrepareChatRequest(messages []*apiv1.ChatMessage, chatContext
 	}
 }
 
-// Chat sends a chat request to the AI service
-func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error) {
-	if c.isHTTP {
-		return c.chatHTTP(ctx, req)
-	}
-	return c.client.Chat(ctx, req)
+// ExecuteTool executes a tool with the given name and arguments
+// This method should be overridden by embedding AIClient in a custom struct
+// Default implementation returns an error
+func (c *AIClient) ExecuteTool(toolName string, arguments map[string]interface{}) (string, error) {
+	return "", fmt.Errorf("tool execution not implemented: override ExecuteTool method")
 }
 
-// chatHTTP handles HTTP chat requests
-func (c *AIClient) chatHTTP(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error) {
-	tools := []map[string]interface{}{
-		{
-			"type": "function",
-			"function": map[string]interface{}{
-				"name":        "fs_read",
-				"description": "Read file contents with optional line range",
-				"parameters": map[string]interface{}{
-					"type": "object",
-					"properties": map[string]interface{}{
-						"path": map[string]interface{}{
-							"type":        "string",
-							"description": "File path to read",
-						},
-						"start_line": map[string]interface{}{
-							"type":        "integer",
-							"description": "Starting line (1-indexed)",
-						},
-						"end_line": map[string]interface{}{
-							"type":        "integer",
-							"description": "Ending line (1-indexed, inclusive)",
-						},
-					},
-					"required": []string{"path"},
-				},
-			},
-		},
-		// Add more tools here if needed
+// Chat sends a chat request to the AI service (main orchestrator)
+// If context contains agentic=true, it will run an agentic loop with tool execution
+func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error) {
+	// Check if agentic mode is enabled
+	isAgentic, _ := ctx.Value(agentic).(bool)
+
+	if !isAgentic {
+		// Non-agentic mode: single request-response
+		parsed, err := c.sendMessage(ctx, req)
+		if err != nil {
+			return nil, err
+		}
+		return &apiv1.ChatResponse{Content: parsed.Content}, nil
 	}
+
+	// Agentic mode: loop with tool execution
+
+	// Clone messages to avoid modifying the original slice
+	currentMessages := make([]*apiv1.ChatMessage, len(req.Messages))
+	copy(currentMessages, req.Messages)
+
+	maxIterations := 10 // Prevent infinite loops
+	iteration := 0
+
+	for iteration < maxIterations {
+		iteration++
+		fmt.Printf("[DEBUG] Agentic loop iteration %d\n", iteration)
+
+		// Send message using protocol-specific helper
+		chatReq := &apiv1.ChatRequest{Messages: currentMessages}
+		parsed, err := c.sendMessage(ctx, chatReq)
+		if err != nil {
+			return nil, fmt.Errorf("API error in iteration %d: %w", iteration, err)
+		}
+
+		// If no tool calls, we're done
+		if len(parsed.ToolCalls) == 0 {
+			fmt.Printf("[DEBUG] No tool calls, returning response\n")
+			return &apiv1.ChatResponse{Content: parsed.Content}, nil
+		}
+
+		// Add assistant message with tool calls to conversation
+		if parsed.Content != "" {
+			currentMessages = append(currentMessages, &apiv1.ChatMessage{
+				Role:    "assistant",
+				Content: parsed.Content,
+			})
+		}
+
+		fmt.Printf("[DEBUG] Executing %d tools\n", len(parsed.ToolCalls))
+
+		// Execute each tool and collect results
+		for _, toolCall := range parsed.ToolCalls {
+			fmt.Printf("[DEBUG] Executing tool: %s (ID: %s)\n", toolCall.Function.Name, toolCall.ID)
+
+			// Parse arguments JSON string to map
+			var args map[string]interface{}
+			if err := json.Unmarshal([]byte(toolCall.Function.Arguments), &args); err != nil {
+				return nil, fmt.Errorf("failed to parse tool arguments: %w", err)
+			}
+
+			// Execute the tool using the client's ExecuteTool method
+			result, err := c.ExecuteTool(toolCall.Function.Name, args)
+			if err != nil {
+				result = fmt.Sprintf("Error executing tool: %s", err.Error())
+			}
+
+			// Add tool result as a message
+			toolResultMsg := &apiv1.ChatMessage{
+				Role:    "tool",
+				Content: fmt.Sprintf("[Tool: %s, ID: %s]\n%s", toolCall.Function.Name, toolCall.ID, result),
+			}
+			currentMessages = append(currentMessages, toolResultMsg)
+		}
+
+		// Continue loop with updated messages
+	}
+
+	return nil, fmt.Errorf("exceeded maximum iterations (%d) in agentic loop", maxIterations)
+}
+
+// sendMessage routes to the appropriate protocol-specific helper (HTTP or gRPC)
+func (c *AIClient) sendMessage(ctx context.Context, req *apiv1.ChatRequest) (*ParsedResponse, error) {
+	if c.isHTTP {
+		return c.sendHTTP(ctx, req)
+	}
+	return c.sendGRPC(ctx, req)
+}
+
+// sendHTTP handles HTTP-specific message sending
+func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*ParsedResponse, error) {
 	// Convert proto messages to JSON format
 	type msg struct {
 		Role    string `json:"role"`
@@ -146,16 +241,23 @@ func (c *AIClient) chatHTTP(ctx context.Context, req *apiv1.ChatRequest) (*apiv1
 		messages[i] = msg{Role: m.Role, Content: m.Content}
 	}
 
+	// Build request body
 	reqBody := struct {
-		Model      string                   `json:"model"`
-		Messages   []msg                    `json:"messages"`
-		Tools      []map[string]interface{} `json:"tools"`
-		ToolChoice string                   `json:"tool_choice,omitempty"`
+		Model      string      `json:"model"`
+		Messages   []msg       `json:"messages"`
+		Tools      interface{} `json:"tools,omitempty"`
+		ToolChoice interface{} `json:"tool_choice,omitempty"`
 	}{
-		Model:      c.model,
-		Messages:   messages,
-		Tools:      tools,
-		ToolChoice: "auto",
+		Model:    c.model,
+		Messages: messages,
+	}
+
+	// Check context for tools metadata
+	if tools := ctx.Value(tools); tools != nil {
+		reqBody.Tools = tools
+	}
+	if toolChoice := ctx.Value(toolChoice); toolChoice != nil {
+		reqBody.ToolChoice = toolChoice
 	}
 
 	jsonData, _ := json.Marshal(reqBody)
@@ -181,7 +283,8 @@ func (c *AIClient) chatHTTP(ctx context.Context, req *apiv1.ChatRequest) (*apiv1
 	var result struct {
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content   string     `json:"content"`
+				ToolCalls []ToolCall `json:"tool_calls,omitempty"`
 			} `json:"message"`
 		} `json:"choices"`
 	}
@@ -194,8 +297,25 @@ func (c *AIClient) chatHTTP(ctx context.Context, req *apiv1.ChatRequest) (*apiv1
 		return nil, fmt.Errorf("no response from API")
 	}
 
-	return &apiv1.ChatResponse{
-		Content: result.Choices[0].Message.Content,
+	return &ParsedResponse{
+		Content:   result.Choices[0].Message.Content,
+		ToolCalls: result.Choices[0].Message.ToolCalls,
+	}, nil
+}
+
+// sendGRPC handles gRPC-specific message sending
+func (c *AIClient) sendGRPC(ctx context.Context, req *apiv1.ChatRequest) (*ParsedResponse, error) {
+	// Call gRPC endpoint
+	resp, err := c.client.Chat(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	// Convert to ParsedResponse
+	// TODO: Parse tool_calls from gRPC response when proto supports it
+	return &ParsedResponse{
+		Content:   resp.Content,
+		ToolCalls: nil, // Will be populated when proto is updated
 	}, nil
 }
 
@@ -206,7 +326,7 @@ func (c *AIClient) HealthCheck(ctx context.Context, req *apiv1.HealthCheckReques
 		testReq := &apiv1.ChatRequest{
 			Messages: []*apiv1.ChatMessage{{Role: "user", Content: "test"}},
 		}
-		_, err := c.chatHTTP(ctx, testReq)
+		_, err := c.sendHTTP(ctx, testReq)
 		if err != nil {
 			return &apiv1.HealthCheckResponse{IsAlive: false}, err
 		}
@@ -226,4 +346,3 @@ func (c *AIClient) Close() error {
 	}
 	return nil
 }
-
