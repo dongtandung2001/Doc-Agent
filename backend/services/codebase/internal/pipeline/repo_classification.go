@@ -11,7 +11,7 @@ import (
 	ctx "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
 )
 
-func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient) (string, error) {
+func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) (string, error) {
 	// Construct the prompt for classification
 	prompt, err := os.ReadFile("internal/prompts//generate_classfication.md")
 
@@ -30,7 +30,7 @@ func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient) (stri
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
 
-	classfication, err := aiClient.Chat(ctx, chatRequest)
+	classfication, err := aiClient.Chat(ctx, chatRequest, gatewayClient)
 
 	if err != nil {
 		log.Printf("Error calling AI Chat: %v", err)

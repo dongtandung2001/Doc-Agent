@@ -5,11 +5,17 @@ import (
 )
 
 type Config struct {
-	Server ServerConfig
-	AI     AIServiceConfig
+	Server  ServerConfig
+	AI      AIServiceConfig
+	Gateway GatewayServiceConfig
 }
 
 type AIServiceConfig struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
+}
+
+type GatewayServiceConfig struct {
 	Host string `mapstructure:"host"`
 	Port int    `mapstructure:"port"`
 }

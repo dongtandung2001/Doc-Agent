@@ -11,17 +11,18 @@ import (
 )
 
 type AnalysisService struct {
-	aiClient    *clients.AIClient
-	localClient *clients.LocalAgentClient
+	aiClient      *clients.AIClient
+	gatewayClient *clients.GatewayClient
 	// Add dependencies:
 	// - Message queue client (RabbitMQ/Kafka) to enqueue tasks
 	// - Cache for analysis results
 	// - LLM client for classification
 }
 
-func NewAnalysisService(aiClient *clients.AIClient) *AnalysisService {
+func NewAnalysisService(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) *AnalysisService {
 	return &AnalysisService{
-		aiClient: aiClient,
+		aiClient:      aiClient,
+		gatewayClient: gatewayClient,
 	}
 }
 
@@ -41,7 +42,7 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	chatCtx.Set("category", projectStructure)
 	chatCtx.Set("readme", readmeContent)
 	// Step 1: Classify the repository
-	classification, err := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
+	classification, err := pipeline.ClassifyRepo(*chatCtx, s.aiClient, s.gatewayClient)
 
 	// Handle error
 	if err != nil {
@@ -56,7 +57,7 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	chatCtx.Set("classification", classification)
 	chatCtx.Set("code_files", projectStructure)
 	// Step 2: Generate instructions based on classification
-	_, err2 := pipeline.GenerateInstruction(*chatCtx, s.aiClient)
+	_, err2 := pipeline.GenerateInstruction(*chatCtx, s.aiClient, s.gatewayClient)
 
 	// Handle error
 	if err2 != nil {

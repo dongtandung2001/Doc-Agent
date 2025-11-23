@@ -34,8 +34,17 @@ func main() {
 	}
 	defer aiClient.Close()
 
+	gatewayClient, err := clients.NewGatewayClient(
+		cfg.Gateway.Host,
+		cfg.Gateway.Port,
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to GatewayService: %v", err)
+	}
+	defer gatewayClient.Close()
+
 	// Initialize service layer
-	analysisSvc := service.NewAnalysisService(aiClient)
+	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient)
 
 	// Initialize gRPC server
 	grpcSrv := grpc.NewServer(

@@ -23,13 +23,11 @@ import (
 var templateVarRegex = regexp.MustCompile(`\{\{\$([a-zA-Z0-9_]+)\}\}`)
 
 // Context keys for metadata
-type contextKey string
+type ContextKey string
 
 const (
-	tools          contextKey = "tools"
-	toolChoice     contextKey = "tool_choice"
-	agentic        contextKey = "agentic_chat"
-	httpTimeoutKey contextKey = "http_timeout"
+	AgenticMode    ContextKey = "agentic_chat"
+	HTTPTimeoutKey ContextKey = "http_timeout"
 )
 
 // ToolCall represents a tool call from the API response
@@ -133,18 +131,68 @@ func (c *AIClient) PrepareChatRequest(messages []*apiv1.ChatMessage, chatContext
 	}
 }
 
+// GetTools returns the list of available tools for the AI
+// Override this method to provide custom tools
+func (c *AIClient) GetTools() []map[string]interface{} {
+	return []map[string]interface{}{
+		{
+			"type": "function",
+			"function": map[string]interface{}{
+				"name":        "fs_read",
+				"description": "Read file contents with optional line range",
+				"parameters": map[string]interface{}{
+					"type": "object",
+					"properties": map[string]interface{}{
+						"path": map[string]interface{}{
+							"type":        "string",
+							"description": "File path to read",
+						},
+						"start_line": map[string]interface{}{
+							"type":        "integer",
+							"description": "Starting line (1-indexed)",
+						},
+						"end_line": map[string]interface{}{
+							"type":        "integer",
+							"description": "Ending line (1-indexed, inclusive)",
+						},
+					},
+					"required": []string{"path"},
+				},
+			},
+		},
+	}
+}
+
+// GetToolChoice returns the tool choice strategy
+// Override this method to customize tool selection behavior
+// Returns "auto" by default
+func (c *AIClient) GetToolChoice() string {
+	return "auto"
+}
+
 // ExecuteTool executes a tool with the given name and arguments
 // This method should be overridden by embedding AIClient in a custom struct
 // Default implementation returns an error
-func (c *AIClient) ExecuteTool(toolName string, arguments map[string]interface{}) (string, error) {
+func (c *AIClient) ExecuteTool(toolName string, arguments map[string]interface{}, gatewayClient *GatewayClient) (string, error) {
+	if toolName == "fs_read" {
+		// Extract arguments
+		path, _ := arguments["path"].(string)
+		// Tool call id
+		tool_call_id, _ := arguments["tool_call_id"].(string)
+		fmt.Printf("[DEBUG] Executing fs_read tool (ID: %s) for path: %s\n", tool_call_id, path)
+
+		
+
+		return "", nil
+	}
 	return "", fmt.Errorf("tool execution not implemented: override ExecuteTool method")
 }
 
 // Chat sends a chat request to the AI service (main orchestrator)
-// If context contains agentic=true, it will run an agentic loop with tool execution
-func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error) {
+// If context contains AgenticMode=true, it will run an agentic loop with tool execution
+func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClient *GatewayClient) (*apiv1.ChatResponse, error) {
 	// Check if agentic mode is enabled
-	isAgentic, _ := ctx.Value(agentic).(bool)
+	isAgentic, _ := ctx.Value(AgenticMode).(bool)
 
 	if !isAgentic {
 		// Non-agentic mode: single request-response
@@ -202,7 +250,7 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.Cha
 			}
 
 			// Execute the tool using the client's ExecuteTool method
-			result, err := c.ExecuteTool(toolCall.Function.Name, args)
+			result, err := c.ExecuteTool(toolCall.Function.Name, args, gatewayClient)
 			if err != nil {
 				result = fmt.Sprintf("Error executing tool: %s", err.Error())
 			}
@@ -241,23 +289,21 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 		messages[i] = msg{Role: m.Role, Content: m.Content}
 	}
 
+	// Get tools from client
+	tools := c.GetTools()
+	toolChoice := c.GetToolChoice()
+
 	// Build request body
 	reqBody := struct {
-		Model      string      `json:"model"`
-		Messages   []msg       `json:"messages"`
-		Tools      interface{} `json:"tools,omitempty"`
-		ToolChoice interface{} `json:"tool_choice,omitempty"`
+		Model      string                   `json:"model"`
+		Messages   []msg                    `json:"messages"`
+		Tools      []map[string]interface{} `json:"tools,omitempty"`
+		ToolChoice string                   `json:"tool_choice,omitempty"`
 	}{
-		Model:    c.model,
-		Messages: messages,
-	}
-
-	// Check context for tools metadata
-	if tools := ctx.Value(tools); tools != nil {
-		reqBody.Tools = tools
-	}
-	if toolChoice := ctx.Value(toolChoice); toolChoice != nil {
-		reqBody.ToolChoice = toolChoice
+		Model:      c.model,
+		Messages:   messages,
+		Tools:      tools,
+		ToolChoice: toolChoice,
 	}
 
 	jsonData, _ := json.Marshal(reqBody)

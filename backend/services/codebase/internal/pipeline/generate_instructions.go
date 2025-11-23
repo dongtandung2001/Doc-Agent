@@ -236,7 +236,7 @@ const DEFAULT_PROMPT = `
 	- **Maintenance & Operations**: Deployment procedures, operational guidelines, and maintenance workflows
 `
 
-func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient) (string, error) {
+func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) (string, error) {
 	// multi-stage thinking process
 	messages := []*apiv1.ChatMessage{}
 
@@ -338,8 +338,8 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 	req := aiClient.PrepareChatRequest(messages, &chatContext, final_prompt, false)
 
 	// set agentic mode
-	chatContext.Set("agentic_chat", true)
-	instructions, err := aiClient.Chat(ctx, req)
+	ctx = context.WithValue(ctx, clients.AgenticMode, true)
+	instructions, err := aiClient.Chat(ctx, req, gatewayClient)
 
 	if err != nil {
 		log.Printf("Error Generating instructions: %v", err)

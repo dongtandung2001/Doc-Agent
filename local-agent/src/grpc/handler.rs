@@ -18,7 +18,7 @@ pub async fn read_file_content(args: Vec<FileReadArg>) -> Vec<FileReadResult> {
 
     for p in &args {
         let tool_use = ToolUse {
-            id: "fs_read".to_string(),
+            id: p.id.clone(),
             name: "fs_read".to_string(),
             args: json!({
                 "path": p.path
