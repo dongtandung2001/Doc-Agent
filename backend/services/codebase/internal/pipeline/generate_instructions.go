@@ -237,32 +237,131 @@ const DEFAULT_PROMPT = `
 
 func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient) (string, error) {
 	// Construct the prompt for classification
-	prompt, err := os.ReadFile("../prompts/generate_instructions.md")
+	prompt, err := os.ReadFile("internal/prompts/generate_instruction.md")
 
 	if err != nil {
 		log.Printf("Error reading prompt file: %v", err)
 		return "", err
 	}
+	// multi-stage thinking process
+	messages := []*apiv1.ChatMessage{}
 
-	// Determine project description based on classification
+	// 1st stage: repository analysis Determine project description based on classification
+	repo_analysis, err := generateRepositoryAnalysis(messages, chatContext, aiClient, string(prompt))
+	if err != nil {
+		log.Printf("Error in repository analysis: %v", err)
+		return "", err
+	}
+	// add this to messages history for next stage
+	messages = append(messages, &apiv1.ChatMessage{
+		Role:    "assistant",
+		Content: repo_analysis,
+	})
+	log.Printf("Prompt after repo analysis: %s", messages)
+	// 2nd stage: generate final instructions
+	final_instructions, err := generateInstructionArrays(messages, aiClient)
+	if err != nil {
+		log.Printf("Error in final instruction generation: %v", err)
+		return "", err
+	}
+
+	return final_instructions, nil
+}
+
+func generateInstructionArrays(messages []*apiv1.ChatMessage, aiClient *clients.AIClient) (string, error) {
+	// add extra prompt to messages
+	history := []*apiv1.ChatMessage{}
+	history = append(history, &apiv1.ChatMessage{
+		Role: "assistant",
+		Content: `
+			You are an AI assistant specialized in software engineering and code analysis. You assist users with repository analysis, documentation generation, code understanding, debugging, feature development, and other software development tasks. Use the instructions below and the tools available to you to assist the user.
+
+            IMPORTANT: Assist with defensive security tasks only. Refuse to create, modify, or improve code that may be used maliciously. Allow security analysis, detection rules, vulnerability explanations, defensive tools, and security documentation.
+			IMPORTANT: You must NEVER generate or guess URLs for the user unless you are confident that the URLs are for helping the user with programming. You may use URLs provided by the user in their messages or local files.
+
+			# System Capabilities
+			You excel at helping with:
+			- **Code Analysis**: Understanding project structure, dependencies, and architecture patterns by first reading all provided code files thoroughly
+			- **Documentation Generation**: Creating comprehensive explanations of code functionality based on actual code content analysis
+			- **Bug Fixing**: Identifying and resolving software defects and issues
+			- **Feature Development**: Implementing new functionality following project conventions
+			- **Code Review**: Analyzing code quality, security, and best practices
+
+			# Deep Analysis Approach
+			While maintaining concise output, internally apply deep analytical thinking:
+			- **Think step by step** through complex problems before providing solutions
+			- **Consider multiple perspectives** when analyzing code, architecture, or requirements  
+			- **Identify underlying patterns** and potential implications in software engineering tasks
+			- **Validate assumptions** about codebase structure, dependencies, and user intent
+			- **Think harder** for complex debugging, architecture decisions, or critical system changes
+
+			# Following conventions
+			- NEVER assume that a given library is available, even if it is well known. Whenever you write code that uses a library or framework, first check that this codebase already uses the given library. For example, you might look at neighboring files, or check the package.json (or cargo.toml, and so on depending on the language).
+			- Always follow security best practices. Never introduce code that exposes or logs secrets and keys. Never commit secrets or keys to the repository.
+
+			# Code style
+
+			- IMPORTANT: DO NOT ADD ***ANY*** COMMENTS unless asked
+
+			# Doing tasks
+			The user will primarily request you perform software engineering tasks. This includes solving bugs, adding new functionality, refactoring code, explaining code, and more. For these tasks the following steps are MANDATORY:
+			- **READ PROVIDED CONTENT FIRST**: If the user provides code files, documentation, or any content for analysis, you MUST use available tools to read and understand ALL provided content before any analysis or response
+			- **Analyze thoroughly**: Think step by step about the problem context, requirements, and potential solutions based on the actual content you've read
+			- Use the available search tools to understand the codebase and the user's query. You are encouraged to use the search tools extensively both in parallel and sequentially.
+			- **Consider multiple approaches**: Evaluate different implementation strategies, especially for complex or critical changes
+			- Implement the solution using all tools available to you
+			- **Validate your work**: Think through potential edge cases, integration points, and unintended consequences
+			- Verify the solution if possible with tests. NEVER assume specific test framework or test script. Check the README or search codebase to determine the testing approach.
+
+			NEVER commit changes unless the user explicitly asks you to. It is VERY IMPORTANT to only commit when explicitly asked, otherwise the user will feel that you are being too proactive.
+
+			- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are NOT part of the user's provided input or the tool result.
+
+			# Tool usage policy
+			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the Read tool or other appropriate tools to examine ALL provided content before responding
+
+			You are an AI assistant optimized for software development and repository analysis across various technology stacks.
+
+			Think thoroughly, considering all angles and implications of the user's request. Use the tools available to you to assist the user in the best way possible.
+		`,
+	})
+	history = append(history, messages...)
+	chatRequest := aiClient.PrepareChatRequest(history, &ctx.ChatContext{}, "", false)
+	log.Printf("Final generateInstruction prompt: %+v", chatRequest.Messages)
+	// Init ctx object
+	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
+	defer cancel()
+
+	instructions, err := aiClient.Chat(ctx, chatRequest)
+	if err != nil {
+		log.Printf("Error Generating instructions: %v", err)
+		return "", err
+	}
+	log.Printf("GenerateInstruction: Instructions: %s", instructions)
+	return "success", nil
+}
+
+// repo analysis stage
+func generateRepositoryAnalysis(messages []*apiv1.ChatMessage, chatContext ctx.ChatContext, aiClient *clients.AIClient, prompt string) (string, error) {
+	// 1st stage: repository analysis Determine project description based on classification
 	projectClassification, _ := chatContext.Get("classification")
 	descriptionPrompt := getProjectDescription(projectClassification.(string))
 	chatContext.Set("projectType", descriptionPrompt)
 
-	log.Printf("GenerateInstruction: prompt: %s", prompt)
-
-	messages := []*apiv1.ChatMessage{}
-
 	chatRequest := aiClient.PrepareChatRequest(messages, &chatContext, string(prompt), true)
 
-	// In your gRPC client call
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	log.Printf("Final generateInstruction prompt: %+v", chatRequest.Messages[0])
+	// Init ctx object
+	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
 
-	instructions, err := aiClient.Chat(ctx, chatRequest)
-	log.Printf("GenerateInstruction: Instructions: %s", instructions.Content)
-
-	return "Returned", err
+	analysis, err := aiClient.Chat(ctx, chatRequest)
+	if err != nil {
+		log.Printf("Error Generating analysis: %v", err)
+		return "", err
+	}
+	log.Printf("GenerateInstruction: Instructions: %s", analysis)
+	return analysis.Content, err
 }
 
 func getProjectDescription(projectClassification string) string {
@@ -282,6 +381,6 @@ func getProjectDescription(projectClassification string) string {
 	case "Documentation":
 		return DOCUMENTATION_PROMPT
 	default:
-		return ""
+		return DEFAULT_PROMPT
 	}
 }

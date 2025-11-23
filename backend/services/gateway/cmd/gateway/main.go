@@ -31,16 +31,16 @@ func main() {
 	}
 	defer localAgentClient.Close()
 
-	// codebaseClient, err := clients.NewCodebaseClient(
-	// 	cfg.Backends.CodebaseService.Host,
-	// 	cfg.Backends.CodebaseService.Port,
-	// )
-	// if err != nil {
-	// 	log.Printf("Failed to connect to codebase analysis service: %v", err)
-	// } else {
-	// 	log.Printf("Connected to Codebase Analysis Service at %s:%d", cfg.Backends.CodebaseService.Host, cfg.Backends.CodebaseService.Port)
-	// }
-	// defer codebaseClient.Close()
+	codebaseClient, err := clients.NewCodebaseClient(
+		cfg.Backends.CodebaseService.Host,
+		cfg.Backends.CodebaseService.Port,
+	)
+	if err != nil {
+		log.Printf("Failed to connect to codebase analysis service: %v", err)
+	} else {
+		log.Printf("Connected to Codebase Analysis Service at %s:%d", cfg.Backends.CodebaseService.Host, cfg.Backends.CodebaseService.Port)
+	}
+	defer codebaseClient.Close()
 
 	// databaseClient, err := clients.NewDatabaseClient(
 	// 	"localhost", // TODO: Get from config
@@ -64,7 +64,7 @@ func main() {
 	// Pass the underlying gRPC clients using GetClient()
 	gatewayHandler := handlers.NewGatewayHandler(
 		localAgentClient.GetClient(),
-		nil,
+		codebaseClient.GetClient(),
 		nil,
 		nil,
 	)

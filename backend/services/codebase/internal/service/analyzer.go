@@ -11,7 +11,8 @@ import (
 )
 
 type AnalysisService struct {
-	aiClient *clients.AIClient
+	aiClient    *clients.AIClient
+	localClient *clients.LocalAgentClient
 	// Add dependencies:
 	// - Message queue client (RabbitMQ/Kafka) to enqueue tasks
 	// - Cache for analysis results
@@ -30,6 +31,7 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	req *apiv1.StartCodebaseAnalysisRequest,
 ) (*apiv1.StartCodebaseAnalysisResponse, error) {
 	log.Printf("Starting codebase analysis with project structure: %s", req.ProjectStructure)
+	log.Printf("Readme content: %s", req.ReadmeContent)
 	// init chat context
 	chatCtx := chatContext.NewContext()
 	// get req
@@ -39,7 +41,13 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	chatCtx.Set("category", projectStructure)
 	chatCtx.Set("readme", readmeContent)
 	// Step 1: Classify the repository
-	classification, _ := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
+	classification, err := pipeline.ClassifyRepo(*chatCtx, s.aiClient)
+
+	// Handle error
+	if err != nil {
+		log.Printf("Error classifying repository: %v", err)
+		return nil, err
+	}
 
 	// Clear the chatContext for next use
 	chatCtx.Clear()
