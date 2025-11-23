@@ -237,18 +237,6 @@ const DEFAULT_PROMPT = `
 `
 
 func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient) (string, error) {
-	// Construct the prompt for classification
-	prompt, err := os.ReadFile("internal/prompts/generate_instruction.md")
-
-	// get project classification from chat context
-	projectClassification, _ := chatContext.Get("classification")
-	descriptionPrompt := getProjectDescription(projectClassification.(string))
-	chatContext.Set("projectType", descriptionPrompt)
-
-	if err != nil {
-		log.Printf("Error reading prompt file: %v", err)
-		return "", err
-	}
 	// multi-stage thinking process
 	messages := []*apiv1.ChatMessage{}
 
@@ -308,6 +296,19 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 		`,
 	})
 
+	// Construct the prompt for instruction generation
+	prompt, err := os.ReadFile("internal/prompts/generate_instruction.md")
+
+	if err != nil {
+		log.Printf("Error reading prompt file: %v", err)
+		return "", err
+	}
+
+	// get project classification from chat context
+	projectClassification, _ := chatContext.Get("classification")
+	descriptionPrompt := getProjectDescription(projectClassification.(string))
+	chatContext.Set("projectType", descriptionPrompt)
+
 	// 1st stage: repository analysis Determine project description based on classification
 	// 1st stage: repository analysis Determine project description based on classification
 	final_prompt := utils.ProcessTemplateVariables(string(prompt), &chatContext)
@@ -336,6 +337,8 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 
 	req := aiClient.PrepareChatRequest(messages, &chatContext, final_prompt, false)
 
+	// set agentic mode
+	chatContext.Set("agentic_chat", true)
 	instructions, err := aiClient.Chat(ctx, req)
 
 	if err != nil {
@@ -345,29 +348,6 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 	log.Printf("GenerateInstruction: Instructions: %s", instructions)
 
 	return "sucess", nil
-}
-
-// repo analysis stage
-func generateRepositoryAnalysis(messages []*apiv1.ChatMessage, chatContext ctx.ChatContext, aiClient *clients.AIClient, prompt string) (string, error) {
-	// 1st stage: repository analysis Determine project description based on classification
-	projectClassification, _ := chatContext.Get("classification")
-	descriptionPrompt := getProjectDescription(projectClassification.(string))
-	chatContext.Set("projectType", descriptionPrompt)
-
-	chatRequest := aiClient.PrepareChatRequest(messages, &chatContext, string(prompt), true)
-
-	log.Printf("Final generateInstruction prompt: %+v", chatRequest.Messages[0])
-	// Init ctx object
-	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
-	defer cancel()
-
-	analysis, err := aiClient.Chat(ctx, chatRequest)
-	if err != nil {
-		log.Printf("Error Generating analysis: %v", err)
-		return "", err
-	}
-	log.Printf("GenerateInstruction: Instructions: %s", analysis)
-	return analysis.Content, err
 }
 
 func getProjectDescription(projectClassification string) string {

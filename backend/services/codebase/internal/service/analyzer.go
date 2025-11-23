@@ -63,7 +63,6 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 		log.Printf("Error generating instructions: %v", err2)
 		return nil, err2
 	}
-	log.Printf("Repository classified as: %s", classification)
 
 	return &apiv1.StartCodebaseAnalysisResponse{Success: true}, nil
 }
