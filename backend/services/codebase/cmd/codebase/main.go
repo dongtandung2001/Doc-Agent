@@ -21,6 +21,15 @@ import (
 func main() {
 	// Load .env file if it exists
 	_ = godotenv.Load()
+	file, err := os.OpenFile("logs/log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	defer file.Close()
+
+	log.SetOutput(file)
+	// Optionally, customize the log format
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
 
 	// Load configuration
 	cfg, err := config.Load()

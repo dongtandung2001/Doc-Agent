@@ -11,10 +11,24 @@ message HealthCheckResponse {
   bool is_alive = 1; // true = alive, false = error occurs
 }
 
+ // Represents a function call within a tool call
+  message ToolCallFunction {
+    string name = 1;       // Function name (e.g., "fs_read")
+    string arguments = 2;  // JSON string of arguments
+  }
+
+  // Represents a tool call from the assistant
+  message ToolCall {
+    string id = 1;                      // Tool call ID
+    string type = 2;                    // Type (e.g., "function")
+    ToolCallFunction function = 3;      // Function details
+  }
+
 // Common message types
 message ChatMessage {
   string role = 1;    // "user" or "assistant"
   string content = 2; // The message content
   optional string tool_call_id = 3;
+  repeated ToolCall tool_calls = 4;
 }
 

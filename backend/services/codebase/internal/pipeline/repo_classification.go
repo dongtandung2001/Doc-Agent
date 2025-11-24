@@ -31,7 +31,7 @@ func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatew
 	defer cancel()
 
 	ctx = context.WithValue(ctx, clients.AgenticMode, false)
-	ctx = context.WithValue(ctx, clients.ToolChoiceKey, "none")
+	ctx = context.WithValue(ctx, clients.ToolRequire, false)
 	classfication, err := aiClient.Chat(ctx, chatRequest, gatewayClient)
 
 	if err != nil {
@@ -39,7 +39,7 @@ func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatew
 		return "", err
 	}
 
-	log.Printf("RepoClassification: classification: %s", classfication.Content)
+	log.Printf("RepoClassification: classification: %s", classfication)
 
 	return classfication.Content, nil
 }

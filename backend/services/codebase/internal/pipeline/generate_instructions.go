@@ -334,19 +334,37 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 `
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
-
 	req := aiClient.PrepareChatRequest(messages, &chatContext, final_prompt, false)
+	log.Printf("messages before execute1: %+v", req.Messages)
 
 	// set agentic mode
 	ctx = context.WithValue(ctx, clients.AgenticMode, true)
-	instructions, err := aiClient.Chat(ctx, req, gatewayClient)
+	ctx = context.WithValue(ctx, clients.ToolRequire, true)
+	messages = req.Messages // Update messages to include the new message added by PrepareChatRequest
+	repo_analysis, err := aiClient.Chat(ctx, req, gatewayClient)
 
 	if err != nil {
 		log.Printf("Error Generating instructions: %v", err)
 		return "", err
 	}
-	log.Printf("GenerateInstruction: Instructions: %s", instructions)
+	log.Printf("GenerateInstruction: repo analysis: %s", repo_analysis)
 
+	// append this repo analysis to messages
+	messages = append(messages, &apiv1.ChatMessage{
+		Role:    "assistant",
+		Content: repo_analysis.Content,
+	})
+
+	execute_prompt := "Now, using the existing <repository_analysis> in this thread, output ONLY the JSON catalog per the required schema. No extra text."
+
+	req = aiClient.PrepareChatRequest(messages, &chatContext, execute_prompt, false)
+	log.Printf("messages before execute2: %+v", req.Messages)
+	instructions, err := aiClient.Chat(ctx, req, gatewayClient)
+	if err != nil {
+		log.Printf("Error Generating instructions: %v", err)
+		return "", err
+	}
+	log.Printf("GenerateInstruction: Instructions: %s", instructions)
 	return "sucess", nil
 }
 

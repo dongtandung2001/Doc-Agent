@@ -6,6 +6,7 @@ replace github.com/dongtandung2001/Doc-Agent/backend/shared => ../../shared
 
 require (
 	github.com/dongtandung2001/Doc-Agent/backend/shared v0.0.0-00010101000000-000000000000
+	github.com/joho/godotenv v1.5.1
 	github.com/spf13/viper v1.21.0
 	google.golang.org/grpc v1.76.0
 )
@@ -14,7 +15,6 @@ require (
 	connectrpc.com/connect v1.19.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/joho/godotenv v1.5.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/sagikazarmark/locafero v0.11.0 // indirect
 	github.com/sourcegraph/conc v0.3.1-0.20240121214520-5f936abd7ae8 // indirect

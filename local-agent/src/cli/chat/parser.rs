@@ -28,6 +28,11 @@ pub fn parse_response(response: &Value) -> Result<ParsedResponse> {
                     assistant_text = content.to_string();
                 }
 
+                // finish reason
+                if let Some(finish_reason) = choice.get("finish_reason").and_then(|f| f.as_str()) {
+                    eprintln!("[DEBUG] Finish reason: {}", finish_reason);
+                }
+
                 // Extract tool calls
                 if let Some(tool_calls) = message.get("tool_calls").and_then(|t| t.as_array()) {
                     eprintln!("[DEBUG] Found {} tool calls", tool_calls.len());
