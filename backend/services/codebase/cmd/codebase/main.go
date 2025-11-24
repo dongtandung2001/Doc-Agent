@@ -8,30 +8,52 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/joho/godotenv"
 	"google.golang.org/grpc"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/config"
 	grpcserver "github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/grpc"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/codebase/internal/service"
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 )
 
 func main() {
+	// Load .env file if it exists
+	_ = godotenv.Load()
+	file, err := os.OpenFile("logs/log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	defer file.Close()
+
+	log.SetOutput(file)
+	// Optionally, customize the log format
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	aiClient, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	aiClient, err := clients.NewAIClient("", 0)
 	if err != nil {
 		log.Fatalf("Failed to connect to AIService: %v", err)
 	}
 	defer aiClient.Close()
 
+	gatewayClient, err := clients.NewGatewayClient(
+		cfg.Gateway.Host,
+		cfg.Gateway.Port,
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to GatewayService: %v", err)
+	}
+	defer gatewayClient.Close()
+
 	// Initialize service layer
-	analysisSvc := service.NewAnalysisService(aiClient)
+	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient)
 
 	// Initialize gRPC server
 	grpcSrv := grpc.NewServer(

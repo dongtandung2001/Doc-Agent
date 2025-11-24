@@ -10,11 +10,6 @@ use crate::grpc::server;
 use super::super::super::ChatState;
 use crate::api::ApiClient;
 
-struct StartCodebaseAnalysisResponse {
-    success: bool,
-}
-
-use crate::grpc::proto::ChatMessage;
 pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     println!("Starting document generation...");
     println!("Please keep the agent running while documents are being generated.");
@@ -75,7 +70,8 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     // call codebase anaylsis endpoint
     let response = api_client
         .start_codebase_analysis(serde_json::json!({
-            "root_dir": path,
+            "project_structure": dir,
+            "readme_content": _readme,
         }))
         .await;
 

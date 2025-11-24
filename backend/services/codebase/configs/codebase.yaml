@@ -5,3 +5,7 @@ server:
 ai:
   host: "localhost"
   port: 50051
+
+gateway:
+  host: "localhost"
+  port: 8080

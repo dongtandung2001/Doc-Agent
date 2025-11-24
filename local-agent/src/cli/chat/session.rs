@@ -1,5 +1,6 @@
 use eyre::Result;
 use serde_json::json;
+use std::fmt::format;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
 use tracing::error;
@@ -104,7 +105,7 @@ impl ChatSession {
         // Get the last message from conversation (should always be Assistant)
         let response = match self.conversation.messages().last() {
             Some(super::message::Message::Assistant { content }) => content.clone(),
-            _ => return Err(eyre::eyre!("Expected last message to be from Assistant")),
+            _ => format!("Failed to get message {:?}", self.conversation.messages()),
         };
 
         Ok(response)

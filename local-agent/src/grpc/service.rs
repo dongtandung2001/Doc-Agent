@@ -28,7 +28,7 @@ impl LocalAgentService for LocalAgentServiceImpl {
                 content: res.content.unwrap_or_default(),
             })
             .collect();
-
+        println!("Final results to return: {:?}", final_results);
         Ok(Response::new(RequestFileContentResponse {
             results: final_results,
         }))
