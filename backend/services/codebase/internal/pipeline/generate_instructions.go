@@ -365,7 +365,7 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 		return "", err
 	}
 	log.Printf("GenerateInstruction: Instructions: %s", instructions)
-	return "sucess", nil
+	return instructions.Content, nil
 }
 
 func getProjectDescription(projectClassification string) string {

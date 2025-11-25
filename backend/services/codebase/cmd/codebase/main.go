@@ -52,8 +52,19 @@ func main() {
 	}
 	defer gatewayClient.Close()
 
+	redisClient, err := clients.NewRedisClient(clients.RedisConfig{
+		Host:     cfg.Redis.Host,
+		Port:     cfg.Redis.Port,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	defer redisClient.Close()
+
 	// Initialize service layer
-	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient)
+	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient, redisClient)
 
 	// Initialize gRPC server
 	grpcSrv := grpc.NewServer(

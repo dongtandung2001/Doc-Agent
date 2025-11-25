@@ -13,16 +13,18 @@ import (
 type AnalysisService struct {
 	aiClient      *clients.AIClient
 	gatewayClient *clients.GatewayClient
+	redisClient   *clients.RedisClient
 	// Add dependencies:
 	// - Message queue client (RabbitMQ/Kafka) to enqueue tasks
 	// - Cache for analysis results
 	// - LLM client for classification
 }
 
-func NewAnalysisService(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) *AnalysisService {
+func NewAnalysisService(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient, redisClient *clients.RedisClient) *AnalysisService {
 	return &AnalysisService{
 		aiClient:      aiClient,
 		gatewayClient: gatewayClient,
+		redisClient:   redisClient,
 	}
 }
 
@@ -57,12 +59,24 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	chatCtx.Set("classification", classification)
 	chatCtx.Set("code_files", projectStructure)
 	// Step 2: Generate instructions based on classification
-	_, err2 := pipeline.GenerateInstruction(*chatCtx, s.aiClient, s.gatewayClient)
+	instructions, err2 := pipeline.GenerateInstruction(*chatCtx, s.aiClient, s.gatewayClient)
 
 	// Handle error
 	if err2 != nil {
 		log.Printf("Error generating instructions: %v", err2)
 		return nil, err2
+	}
+	// Step 3: Enqueue instruction processing task
+
+	success, err3 := pipeline.EnqueueInstruction(instructions, s.redisClient)
+	if err3 != nil {
+		log.Printf("Error enqueueing instruction processing: %v", err3)
+		return nil, err3
+	}
+
+	if !success {
+		log.Printf("Not all instructions were enqueued successfully")
+		return &apiv1.StartCodebaseAnalysisResponse{Success: false}, nil
 	}
 
 	return &apiv1.StartCodebaseAnalysisResponse{Success: true}, nil
