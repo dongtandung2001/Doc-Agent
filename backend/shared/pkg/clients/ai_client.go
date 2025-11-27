@@ -154,7 +154,7 @@ func (c *AIClient) GetTools() []map[string]interface{} {
 					"properties": map[string]interface{}{
 						"path": map[string]interface{}{
 							"type":        "string",
-							"description": "File path to read. MUST use forward slashes (/) as path separators, even on Windows. Examples: 'src/main.rs', 'backend/api/server.go', 'docs/README.md'",
+							"description": "File path to read.",
 						},
 						"start_line": map[string]interface{}{
 							"type":        "integer",
@@ -227,7 +227,7 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 	// Agentic mode: loop with tool execution
 	// Work directly with req.Messages to allow caller to see conversation history
 
-	maxIterations := 10 // Prevent infinite loops
+	maxIterations := 15 // Prevent infinite loops
 	iteration := 0
 
 	for iteration < maxIterations {
@@ -250,9 +250,8 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 		}
 
 		req.Messages = append(req.Messages, &apiv1.ChatMessage{
-			Role:      "assistant",
-			Content:   parsed.Content,
-			ToolCalls: parsed.ToolCalls,
+			Role:    "assistant",
+			Content: parsed.Content,
 		})
 
 		fmt.Printf("[DEBUG] Executing %d tools\n", len(parsed.ToolCalls))

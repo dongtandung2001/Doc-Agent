@@ -68,7 +68,7 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	}
 	// Step 3: Enqueue instruction processing task
 
-	success, err3 := pipeline.EnqueueInstruction(instructions, s.redisClient)
+	success, err3 := pipeline.EnqueueInstruction(*chatCtx, instructions, s.redisClient)
 	if err3 != nil {
 		log.Printf("Error enqueueing instruction processing: %v", err3)
 		return nil, err3

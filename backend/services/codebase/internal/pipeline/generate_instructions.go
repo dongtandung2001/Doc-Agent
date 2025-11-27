@@ -288,7 +288,7 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 			- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are NOT part of the user's provided input or the tool result.
 
 			# Tool usage policy
-			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the Read tool or other appropriate tools to examine ALL provided content before responding
+			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the fs_read tool or other appropriate tools to examine ALL provided content before responding
 
 			You are an AI assistant optimized for software development and repository analysis across various technology stacks.
 

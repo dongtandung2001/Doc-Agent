@@ -3,37 +3,64 @@ package service
 import (
 	"log"
 
+	"github.com/dongtandung2001/Doc-Agent/backend/services/docgen/internal/tasks"
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
+	"github.com/hibiken/asynq"
 )
 
 type DocGenService struct {
 	aiClient      *clients.AIClient
 	gatewayClient *clients.GatewayClient
-	// messageQueueConsumer - TODO: Add RabbitMQ/Kafka consumer
+	redisClient   *clients.RedisClient
+	server        *asynq.Server
 }
 
 func NewDocGenService(
 	aiClient *clients.AIClient,
 	gatewayClient *clients.GatewayClient,
+	redisClient *clients.RedisClient,
 ) *DocGenService {
+	// Create asynq server configuration
+	srv := asynq.NewServer(
+		redisClient.GetRedisOpt(),
+		asynq.Config{
+			Concurrency: 10, // Process up to 10 tasks concurrently
+			Queues: map[string]int{
+				"default": 1, // Priority level for default queue
+			},
+		},
+	)
+
 	return &DocGenService{
 		aiClient:      aiClient,
 		gatewayClient: gatewayClient,
-	}
+		redisClient:   redisClient,
+		server:        srv,
+	} 
 }
 
-// StartWorker starts the message queue consumer
-// TODO: Implement message queue consumer that processes document generation tasks
+// StartWorker starts the asynq server to consume tasks from Redis MQ
 func (s *DocGenService) StartWorker() error {
 	log.Println("Document generation worker started")
-	log.Println("Waiting for tasks from message queue...")
+	log.Println("Waiting for tasks from Redis message queue...")
 
-	// TODO: Subscribe to message queue
-	// Example:
-	// for msg := range messageQueue.Subscribe("doc-generation-tasks") {
-	//     s.processTask(msg)
-	// }
+	// Create task handler with dependencies
+	taskHandler := tasks.NewTaskHandler(s.aiClient, s.gatewayClient)
 
-	// For now, just block
-	select {}
+	// Register all task handlers
+	mux := taskHandler.RegisterHandlers()
+
+	// Start the asynq server (blocking call)
+	log.Println("Starting asynq server...")
+	if err := s.server.Run(mux); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// Shutdown gracefully shuts down the asynq server
+func (s *DocGenService) Shutdown() {
+	log.Println("Shutting down asynq server...")
+	s.server.Shutdown()
 }
