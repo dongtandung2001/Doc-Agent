@@ -1,6 +1,10 @@
 
 # conversation_orchestrator.py
-from typing import List, Dict, Tuple, Optional
+from typing import List, Dict, Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from openai.types.chat import ChatCompletion
+
 from src.llm_client import LLMClient
 from src.vector_store import VectorStoreManager
 from src.logger import setup_logger
@@ -69,10 +73,10 @@ Use the above documentation to answer the user's question accurately. If the doc
             messages: List[Dict[str, str]],
             project_id: str,
             request_name: Optional[str] = None
-    ) -> Tuple[str, bool]:
+    ) -> "ChatCompletion":
         """
         Process chat request with RAG orchestration.
-        Returns: (response_content, tools_executed)
+        Returns: Full OpenAI ChatCompletion response object
         """
         logger.info(f"Processing request for project: {project_id}")
 
@@ -91,22 +95,30 @@ Use the above documentation to answer the user's question accurately. If the doc
         # Build system prompt
         system_prompt = self.build_rag_prompt(messages, retrieved_docs)
 
-        # Generate response
-        response_content, tools_executed = self.llm_client.generate_response(
+        # Generate response - returns full ChatCompletion object
+        response = self.llm_client.generate_response(
             messages,
             system_prompt
         )
 
         # Auto-embed if this is doc generation and no tools were executed
-        if request_name and "Doc Generating" in request_name and not tools_executed:
-            logger.info("Auto-embedding triggered for doc generation")
-            self.auto_embed_response(
-                response_content,
-                project_id,
-                request_name
-            )
+        if request_name and "Doc Generating" in request_name:
+            # Check if tools were executed
+            tools_executed = False
+            if hasattr(response.choices[0].message, 'tool_calls'):
+                tools_executed = response.choices[0].message.tool_calls is not None
+            
+            if not tools_executed:
+                logger.info("Auto-embedding triggered for doc generation")
+                # Extract content for embedding
+                content = response.choices[0].message.content or ""
+                self.auto_embed_response(
+                    content,
+                    project_id,
+                    request_name
+                )
 
-        return response_content, tools_executed
+        return response
 
     def auto_embed_response(
             self,
