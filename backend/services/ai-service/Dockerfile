@@ -1,37 +1,57 @@
+# Build stage
+FROM python:3.11-slim AS builder
 
-# Dockerfile
-FROM python:3.11-slim
+WORKDIR /build
 
-WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements first for better caching
+# Copy and install Python dependencies
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Copy proto file and generate gRPC code
+# Generate proto code
 COPY protos/ ./protos/
 RUN mkdir -p generated && \
-    python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/ai_service.proto
+    python -m grpc_tools.protoc \
+    -I./protos \
+    --python_out=./generated \
+    --grpc_python_out=./generated \
+    ./protos/ai_service.proto
 
-# Copy application code
+# Runtime stage
+FROM python:3.11-slim
+
+# Create non-root user
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+
+WORKDIR /app
+
+# Copy Python packages from builder
+COPY --from=builder /root/.local /home/appuser/.local
+
+# Make sure scripts in .local are in PATH
+ENV PATH=/home/appuser/.local/bin:$PATH
+
+# Copy application
+COPY --from=builder /build/generated ./generated
 COPY src/ ./src/
 COPY main.py ./
 
-# Create directories for data and logs
-RUN mkdir -p /app/data/chroma_db /app/logs
+# Create data directories with proper ownership
+RUN mkdir -p /app/data/chroma_db /app/logs && \
+    chown -R appuser:appuser /app
 
-# Expose gRPC port
+# Switch to non-root
+USER appuser
+
 EXPOSE 50051
 
-# Health check - use a simple Python script that actually tests the gRPC endpoint
+# Healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-  CMD python -c "import sys; sys.path.insert(0, '.'); import grpc; import generated.ai_service_pb2 as ai_service_pb2; import generated.ai_service_pb2_grpc as ai_service_pb2_grpc; channel = grpc.insecure_channel('localhost:50051'); stub = ai_service_pb2_grpc.AIServiceStub(channel); stub.HealthCheck(ai_service_pb2.Empty()); channel.close()" || exit 1
+    CMD python -c "import grpc; import generated.ai_service_pb2 as pb2; import generated.ai_service_pb2_grpc as svc; ch=grpc.insecure_channel('localhost:50051'); svc.AIServiceStub(ch).HealthCheck(pb2.Empty())" || exit 1
 
-# Run the service
 CMD ["python", "main.py"]

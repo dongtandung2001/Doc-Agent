@@ -19,7 +19,7 @@ func main() {
 	}
 
 	// Connect to AI Service
-	aiClient, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	aiClient, err := clients.NewAIClient("", 0)
 	if err != nil {
 		log.Fatalf("Failed to connect to AI Service: %v", err)
 	}

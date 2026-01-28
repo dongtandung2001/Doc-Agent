@@ -104,7 +104,7 @@ impl ChatSession {
         }
         // Get the last message from conversation (should always be Assistant)
         let response = match self.conversation.messages().last() {
-            Some(super::message::Message::Assistant { content }) => content.clone(),
+            Some(super::message::Message::Assistant { content, .. }) => content.clone(),
             _ => format!("Failed to get message {:?}", self.conversation.messages()),
         };
 
@@ -264,13 +264,19 @@ impl ChatSession {
         println!(); // Final newline
 
         // Add assistant message if there was text
-        if !parsed.assistant_text.is_empty() {
-            self.conversation
-                .add(super::message::Message::assistant(parsed.assistant_text));
+        if !parsed.assistant_text.is_empty() && parsed.tools_to_execute.is_empty() {
+            self.conversation.add(super::message::Message::assistant(
+                parsed.assistant_text.clone(),
+            ));
         }
 
         // If tools were requested, validate and execute them
         if !parsed.tools_to_execute.is_empty() {
+            self.conversation
+                .add(super::message::Message::assistant_with_tools(
+                    parsed.assistant_text,
+                    parsed.all_tool_calls,
+                ));
             eprintln!(
                 "[DEBUG] Total tools to execute: {}",
                 parsed.tools_to_execute.len()

@@ -1,0 +1,55 @@
+# Binaries
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go build cache
+.cache/
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs and markdown
+README.md
+*.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# Generated docs (don't include in build context)
+generated_docs/
+
+# Generated files
+generated/
+
+# Test files (optional - remove if you run tests in Docker)
+*_test.go
+
+# OS
+.DS_Store
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/

@@ -6,12 +6,12 @@ backends:
   codebase:
     host: "localhost"
     port: 9001
-  docgen:
+  database:
     host: "localhost"
     port: 9002
   ai:
     host: "localhost"
-    port: 9003
+    port: 50051
   local_agent:
     host: "localhost"
     port: 50051

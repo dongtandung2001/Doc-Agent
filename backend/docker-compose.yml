@@ -4,89 +4,132 @@ services:
   # API Gateway
   gateway:
     build:
-      context: ./services/gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/gateway/Dockerfile
     ports:
       - "8080:8080"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
-      - CODEBASE_HOST=codebase
-      - CODEBASE_PORT=9001
-      - DATABASE_HOST=database
-      - DATABASE_PORT=9002
+      - BACKENDS_CODEBASE_HOST=codebase
+      - BACKENDS_CODEBASE_PORT=9001
+      - BACKENDS_DATABASE_HOST=database
+      - BACKENDS_DATABASE_PORT=9002
+      - BACKENDS_LOCAL_AGENT_HOST=${LOCAL_AGENT_HOST:-host.docker.internal}
+      - BACKENDS_LOCAL_AGENT_PORT=${LOCAL_AGENT_PORT:-50051}
     depends_on:
       - codebase
-      - database
+      # - database
     networks:
       - doc-agent-network
 
   # Codebase Analysis Service
   codebase:
     build:
-      context: ./services/codebase
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/codebase/Dockerfile
     ports:
       - "9001:9001"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=9001
-      - AI_HOST=ai-service
-      - AI_PORT=50051
+      - CHAT_API_URL=${CHAT_API_URL}
+      - CHAT_API_KEY=${CHAT_API_KEY}
+      - CHAT_MODEL=${CHAT_MODEL}
       - GATEWAY_HOST=gateway
       - GATEWAY_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
     networks:
       - doc-agent-network
 
   # Document Generation Worker (consumes from MQ)
   docgen:
     build:
-      context: ./services/docgen
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/docgen/Dockerfile
     environment:
-      - AI_HOST=ai-service
-      - AI_PORT=50051
+      - CHAT_API_URL=${CHAT_API_URL}
+      - CHAT_API_KEY=${CHAT_API_KEY}
+      - CHAT_MODEL=${CHAT_MODEL}
       - GATEWAY_HOST=gateway
       - GATEWAY_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
     depends_on:
       - gateway
+      - redis
     networks:
       - doc-agent-network
 
   # Database Service
-  database:
-    build:
-      context: ./services/database
-      dockerfile: Dockerfile
+  # database:
+  #   build:
+  #     context: .
+  #     dockerfile: services/database/Dockerfile
+  #   ports:
+  #     - "9002:9002"
+  #   environment:
+  #     - SERVER_HOST=0.0.0.0
+  #     - SERVER_PORT=9002
+  #     - DATABASE_POSTGRES_URL=postgres://user:password@postgres:5432/docagent
+  #     - DATABASE_VECTOR_DB_URL=http://vector-db:8000
+  #   depends_on:
+  #     - postgres
+  #   networks:
+  #     - doc-agent-network
+
+  # Redis for Task Queue
+  redis:
+    image: redis:latest
     ports:
-      - "9002:9002"
-    environment:
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PORT=9002
-      - POSTGRES_URL=postgres://user:password@postgres:5432/docagent
-      - VECTOR_DB_URL=http://vector-db:8000
-    depends_on:
-      - postgres
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
     networks:
       - doc-agent-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI Service (Python gRPC)
+  # ai-service:
+  #   build:
+  #     context: ./services/ai-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "50051:50051"
+  #   environment:
+  #     - GRPC_PORT=50051
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - LLM_MODEL=gpt-4
+  #     - LLM_TEMPERATURE=0.7
+  #     - LLM_MAX_TOKENS=4096
+  #   networks:
+  #     - doc-agent-network
 
   # PostgreSQL Database
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_USER=user
-      - POSTGRES_PASSWORD=password
-      - POSTGRES_DB=docagent
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres-data:/var/lib/postgresql/data
-    networks:
-      - doc-agent-network
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     - POSTGRES_USER=user
+  #     - POSTGRES_PASSWORD=password
+  #     - POSTGRES_DB=docagent
+  #   ports:
+  #     - "5432:5432"
+  #   volumes:
+  #     - postgres-data:/var/lib/postgresql/data
+  #   networks:
+  #     - doc-agent-network
 
 networks:
   doc-agent-network:
     driver: bridge
 
 volumes:
-  postgres-data:
+  # postgres-data:
+  redis-data:

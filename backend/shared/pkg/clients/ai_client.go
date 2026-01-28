@@ -89,7 +89,7 @@ func NewAIClient(host string, port int) (*AIClient, error) {
 
 		// Use a longer timeout for AI API calls (5 minutes default)
 		httpClient := &http.Client{
-			Timeout: 5 * time.Minute,
+			Timeout: 10 * time.Minute,
 		}
 
 		fmt.Printf("Successfully created AIClient in HTTP mode with URL: %s\n", apiURL)
@@ -174,7 +174,7 @@ func (c *AIClient) GetTools() []map[string]interface{} {
 
 // GetToolChoice returns the tool choice strategy
 // Override this method to customize tool selection behavior
-// Returns "auto" by default
+// Returns "required" to force tool usage
 func (c *AIClient) GetToolChoice() string {
 	return "auto"
 }
@@ -250,8 +250,9 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 		}
 
 		req.Messages = append(req.Messages, &apiv1.ChatMessage{
-			Role:    "assistant",
-			Content: parsed.Content,
+			Role:      "assistant",
+			Content:   parsed.Content,
+			ToolCalls: parsed.ToolCalls,
 		})
 
 		fmt.Printf("[DEBUG] Executing %d tools\n", len(parsed.ToolCalls))
@@ -321,13 +322,42 @@ func (c *AIClient) sendMessage(ctx context.Context, req *apiv1.ChatRequest) (*Pa
 // sendHTTP handles HTTP-specific message sending
 func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*ParsedResponse, error) {
 	// Convert proto messages to JSON format
+	type toolCallFunction struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	}
+	type toolCall struct {
+		Id       string           `json:"id"`
+		Type     string           `json:"type"`
+		Function toolCallFunction `json:"function"`
+	}
 	type msg struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role       string      `json:"role"`
+		Content    string      `json:"content"`
+		ToolCallId string      `json:"tool_call_id,omitempty"`
+		ToolCalls  []toolCall  `json:"tool_calls,omitempty"`
 	}
 	messages := make([]msg, len(req.Messages))
 	for i, m := range req.Messages {
 		messages[i] = msg{Role: m.Role, Content: m.Content}
+		// Add tool_call_id for tool response messages
+		if m.ToolCallId != nil && *m.ToolCallId != "" {
+			messages[i].ToolCallId = *m.ToolCallId
+		}
+		// Add tool_calls for assistant messages
+		if len(m.ToolCalls) > 0 {
+			messages[i].ToolCalls = make([]toolCall, len(m.ToolCalls))
+			for j, tc := range m.ToolCalls {
+				messages[i].ToolCalls[j] = toolCall{
+					Id:   tc.Id,
+					Type: tc.Type,
+					Function: toolCallFunction{
+						Name:      tc.Function.Name,
+						Arguments: tc.Function.Arguments,
+					},
+				}
+			}
+		}
 	}
 
 	tools := []map[string]interface{}{}
@@ -359,13 +389,12 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 		ToolChoice: toolChoice,
 	}
 
-	log.Printf("DEBUG: reqBody: %+v", reqBody)
-
 	jsonData, _ := json.Marshal(reqBody)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("DEBUG: reqBody: %+v", httpReq)
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)

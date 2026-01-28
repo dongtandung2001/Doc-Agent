@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
@@ -24,10 +26,16 @@ func Load() (*Config, error) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./configs")
 	viper.AddConfigPath(".")
-	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
+	}
+
+	// Enable env var override: DATABASE_POSTGRES_URL -> database.postgres_url
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+	for _, key := range viper.AllKeys() {
+		viper.BindEnv(key)
 	}
 
 	var config Config

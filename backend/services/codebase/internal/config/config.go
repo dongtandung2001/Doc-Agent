@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
@@ -47,17 +49,15 @@ func Load() (*Config, error) {
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
 
-	// Enable automatic environment variable binding
-	viper.AutomaticEnv()
-	viper.BindEnv("gateway.host", "GATEWAY_HOST")
-	viper.BindEnv("gateway.port", "GATEWAY_PORT")
-	viper.BindEnv("redis.host", "REDIS_HOST")
-	viper.BindEnv("redis.port", "REDIS_PORT")
-	viper.BindEnv("redis.password", "REDIS_PASSWORD")
-	viper.BindEnv("redis.db", "REDIS_DB")
-
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
+	}
+
+	// Enable env var override: REDIS_HOST -> redis.host
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+	for _, key := range viper.AllKeys() {
+		viper.BindEnv(key)
 	}
 
 	var config Config

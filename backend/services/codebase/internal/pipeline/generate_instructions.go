@@ -289,6 +289,8 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 
 			# Tool usage policy
 			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the fs_read tool or other appropriate tools to examine ALL provided content before responding
+			- **CRITICAL**: When you need to read files, you MUST call the fs_read function directly using structured function calling. DO NOT just describe what you want to do - actually invoke the tool.
+			- **FUNCTION CALLING**: Use the provided tools by making structured function calls. The system will execute them and return results. Never just say "let me read..." - actually call the fs_read function.
 
 			You are an AI assistant optimized for software development and repository analysis across various technology stacks.
 

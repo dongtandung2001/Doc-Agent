@@ -94,14 +94,14 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await?;
-            eyre::bail!("API error {}: {}", status, text);
+            panic!("API error {}: {}", status, text);
         }
 
         // Parse JSON response
         let json: Value = response.json().await?;
         eprintln!(
             "[DEBUG] API Response: {}",
-            serde_json::to_string_pretty(&json)?
+            serde_json::to_string_pretty(&json)?,
         );
 
         Ok(json)
