@@ -58,6 +58,8 @@ services:
       - GATEWAY_PORT=8080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+    volumes:
+      - ./generated_docs:/app/generated_docs
     depends_on:
       - gateway
       - redis

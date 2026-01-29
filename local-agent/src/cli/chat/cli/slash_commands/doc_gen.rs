@@ -34,7 +34,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
         }
     };
 
-    // let _readme = generate_or_update_readme(&dir).await;
+    let _readme = generate_or_update_readme(&dir).await;
 
     // Check if server is already running
     if server::is_server_running().await {
@@ -71,7 +71,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     let response = api_client
         .start_codebase_analysis(serde_json::json!({
             "project_structure": dir,
-            "readme_content": "Readme",
+            "readme_content": _readme,
         }))
         .await;
 

@@ -42,15 +42,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to connect to Redis: %v", err)
 	}
+	log.Printf("Connected to Redis at %s:%d", cfg.Redis.Host, cfg.Redis.Port)
 	defer redisClient.Close()
 
 	// Initialize service layer
 	docgenSvc := service.NewDocGenService(aiClient, gatewayClient, redisClient)
-
-	log.Println("🚀 Document Generation Worker starting...")
-	log.Printf("   Connected to AI Service at %s:%d", cfg.AI.Host, cfg.AI.Port)
-	log.Printf("   Connected to Gateway at %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
-	log.Printf("   Connected to Redis at %s:%d", cfg.Redis.Host, cfg.Redis.Port)
 
 	// Start message queue worker
 	go func() {
