@@ -6,6 +6,8 @@ replace github.com/dongtandung2001/Doc-Agent/backend/shared => ../../shared
 
 require (
 	github.com/dongtandung2001/Doc-Agent/backend/shared v0.0.0-00010101000000-000000000000
+	github.com/golang-migrate/migrate/v4 v4.18.1
+	github.com/jackc/pgx/v5 v5.7.2
 	github.com/spf13/viper v1.21.0
 	google.golang.org/grpc v1.76.0
 )

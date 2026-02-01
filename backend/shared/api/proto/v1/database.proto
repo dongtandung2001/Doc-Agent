@@ -30,6 +30,7 @@ message StoreDocumentRequest {
   string extra = 5;               // Additional information (JSON format)
   bool is_embedded = 6;           // Whether file is stored directly in system
   string title = 7;               // Display title of the document
+  string project_id = 8;          // Project identifier (for section creation/upsert)
 }
 
 message StoreDocumentResponse {

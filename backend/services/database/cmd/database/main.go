@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net"
@@ -8,11 +9,14 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/config"
+	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/db"
 	grpcserver "github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/grpc"
+	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/repository"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/service"
 )
 
@@ -23,8 +27,27 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
-	// Initialize service layer
-	dbSvc := service.NewDatabaseService()
+	if cfg.Database.PostgresURL == "" {
+		log.Fatal("PostgreSQL URL is required (set POSTGRES_URL or database.postgres_url)")
+	}
+
+	// Run migrations
+	if err := db.RunMigrations(cfg.Database.PostgresURL); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Database migrations completed")
+
+	// Connect to PostgreSQL
+	pool, err := pgxpool.New(context.Background(), cfg.Database.PostgresURL)
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer pool.Close()
+
+	// Initialize repositories and service layer
+	sectionRepo := repository.NewPostgresSectionRepository(pool)
+	fileRepo := repository.NewPostgresFileItemRepository(pool)
+	dbSvc := service.NewDatabaseService(sectionRepo, fileRepo)
 
 	// Initialize gRPC server
 	grpcSrv := grpc.NewServer()
