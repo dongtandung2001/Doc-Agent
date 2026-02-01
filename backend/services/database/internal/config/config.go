@@ -26,8 +26,21 @@ func Load() (*Config, error) {
 	viper.AddConfigPath(".")
 	viper.AutomaticEnv()
 
+	// Set defaults
+	viper.SetDefault("server.host", "0.0.0.0")
+	viper.SetDefault("server.port", 9002)
+
+	// Bind env vars for docker-compose compatibility
+	_ = viper.BindEnv("database.postgres_url", "POSTGRES_URL")
+	_ = viper.BindEnv("database.vector_db_url", "VECTOR_DB_URL")
+	_ = viper.BindEnv("server.host", "SERVER_HOST")
+	_ = viper.BindEnv("server.port", "SERVER_PORT")
+
 	if err := viper.ReadInConfig(); err != nil {
-		return nil, err
+		// Config file is optional when using env vars (e.g., in Docker)
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
+			return nil, err
+		}
 	}
 
 	var config Config

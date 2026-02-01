@@ -21,6 +21,7 @@ WORKDIR /root/
 
 COPY --from=builder /database .
 COPY configs ./configs
+COPY migrations ./migrations
 
 EXPOSE 9002
 

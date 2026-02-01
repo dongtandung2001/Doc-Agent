@@ -63,7 +63,7 @@ services:
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=9002
-      - POSTGRES_URL=postgres://user:password@postgres:5432/docagent
+      - POSTGRES_URL=postgres://user:password@postgres:5432/docagent?sslmode=disable
       - VECTOR_DB_URL=http://vector-db:8000
     depends_on:
       - postgres
