@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>TechDocs Pro - API Integration Guide</title>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&amp;display=swap" rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#135bec",
+                        "primary-light": "#eef4ff",
+                        "background-light": "#f6f6f8",
+                        "background-dark": "#101622",
+                        "slate-850": "#1e293b",
+                    },
+                    fontFamily: {
+                        "display": ["Manrope", "sans-serif"],
+                        "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"]
+                    },
+                    borderRadius: { "DEFAULT": "0.25rem", "lg": "0.5rem", "xl": "0.75rem", "2xl": "1rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+
+<body class="bg-background-light text-slate-900 font-display antialiased overflow-hidden h-screen flex flex-col">
+    <header
+        class="flex items-center justify-between whitespace-nowrap border-b border-solid border-slate-200 bg-white px-8 py-4 h-[72px] shrink-0 z-20">
+        <div class="flex items-center gap-12 w-full">
+            <div class="flex items-center gap-3 text-slate-900 shrink-0">
+                <div
+                    class="size-9 bg-primary text-white rounded-lg flex items-center justify-center shadow-sm shadow-primary/20">
+                    <span class="material-symbols-outlined text-[22px]">api</span>
+                </div>
+                <h2 class="text-slate-900 text-[19px] font-bold leading-tight tracking-tight">TechDocs Pro</h2>
+            </div>
+            <div class="hidden md:flex flex-1 max-w-xl">
+                <div
+                    class="group relative flex items-center w-full h-11 rounded-full bg-slate-50 border border-slate-200 hover:border-slate-300 hover:bg-white focus-within:ring-2 focus-within:ring-primary/10 focus-within:border-primary/50 focus-within:bg-white transition-all shadow-sm">
+                    <div
+                        class="flex items-center justify-center pl-4 text-slate-400 group-focus-within:text-primary transition-colors">
+                        <span class="material-symbols-outlined text-[20px]">search</span>
+                    </div>
+                    <input
+                        class="w-full bg-transparent border-none focus:ring-0 text-sm text-slate-700 placeholder:text-slate-400 h-full px-3"
+                        placeholder="Search documentation..." />
+                    <div class="flex items-center pr-2">
+                        <kbd
+                            class="hidden sm:inline-flex items-center gap-1 px-2 py-1 text-[10px] font-medium text-slate-400 bg-slate-100 border border-slate-200 rounded-md font-sans">
+                            <span class="text-xs">⌘</span>K
+                        </kbd>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-4">
+        </div>
+    </header>
+    <div class="flex flex-1 overflow-hidden relative">
+        <aside class="w-64 bg-slate-50 border-r border-slate-200 flex-col hidden md:flex shrink-0">
+            <div class="p-4 border-b border-slate-100 flex items-center justify-between">
+                <div class="flex flex-col w-full">
+                    <span class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Documentation</span>
+                    <div class="flex items-center justify-between cursor-pointer group w-full">
+                        <span class="text-sm font-bold text-slate-700 group-hover:text-primary">API Reference</span>
+                    </div>
+                </div>
+            </div>
+            <nav class="flex-1 overflow-y-auto p-3 space-y-6" id="toc-nav">
+                <div class="px-3 py-4 text-sm text-slate-500" id="toc-loading">Loading table of contents…</div>
+            </nav>
+        </aside>
+        <main class="flex-1 bg-white overflow-y-auto relative w-full">
+            <div class="max-w-4xl mx-auto px-8 py-10 lg:px-12 lg:py-12">
+                <nav class="flex items-center gap-2 text-sm text-slate-500 mb-6" id="breadcrumb">
+                    <span class="font-medium text-slate-900">Documentation</span>
+                </nav>
+                <div id="doc-content">
+                    <div class="py-12 text-center text-slate-500">Select a section from the table of contents.</div>
+                </div>
+                <div class="h-24"></div>
+            </div>
+        </main>
+        <aside
+            class="w-[400px] bg-white border-l border-slate-200 flex flex-col shrink-0 shadow-[0_0_20px_rgba(0,0,0,0.03)] z-10 relative">
+            <div
+                class="p-4 border-b border-slate-100 bg-white/80 backdrop-blur-sm z-10 flex items-center justify-between sticky top-0">
+                <div class="flex items-center gap-3">
+                    <div
+                        class="size-8 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white shadow-md">
+                        <span class="material-symbols-outlined text-[18px]">smart_toy</span>
+                    </div>
+                    <div>
+                        <h3 class="font-bold text-slate-800 leading-tight">AI Assistant</h3>
+                        <div class="flex items-center gap-1.5">
+                            <span class="size-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                            <span class="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Online</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex gap-1">
+                    <button type="button" id="chat-clear" class="p-2 text-slate-400 hover:text-primary rounded-lg hover:bg-slate-50 transition-colors"
+                        title="Clear Chat">
+                        <span class="material-symbols-outlined text-[20px]">refresh</span>
+                    </button>
+                    <button
+                        class="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-50 transition-colors md:hidden">
+                        <span class="material-symbols-outlined text-[20px]">close</span>
+                    </button>
+                </div>
+            </div>
+            <div class="flex-1 overflow-y-auto p-4 space-y-6 bg-slate-50/50" id="chat-messages">
+                <div class="flex gap-3" id="chat-welcome">
+                    <div class="size-8 rounded-full bg-indigo-100 flex-shrink-0 flex items-center justify-center text-indigo-600 mt-1">
+                        <span class="material-symbols-outlined text-[16px]">smart_toy</span>
+                    </div>
+                    <div class="flex flex-col gap-1 max-w-[85%]">
+                        <span class="text-xs font-bold text-slate-500 ml-1">Assistant</span>
+                        <div class="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700 leading-relaxed">
+                            Hello! I'm your documentation assistant. Ask me anything about this project's docs.
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="p-4 bg-white border-t border-slate-200">
+                <div
+                    class="relative flex items-end gap-2 bg-slate-50 border border-slate-200 rounded-xl p-2 shadow-sm focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                    <button
+                        class="p-2 text-slate-400 hover:text-primary rounded-lg transition-colors h-10 w-10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[20px]">add_circle</span>
+                    </button>
+                    <textarea id="chat-input"
+                        class="w-full bg-transparent border-none focus:ring-0 text-sm text-slate-900 placeholder:text-slate-400 resize-none py-2.5 max-h-32"
+                        placeholder="Ask a question about this doc..." rows="1"></textarea>
+                    <button type="button" id="chat-send"
+                        class="p-2 bg-primary text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm h-10 w-10 flex items-center justify-center shrink-0">
+                        <span class="material-symbols-outlined text-[20px]">arrow_upward</span>
+                    </button>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <script>
+(function () {
+    // --- Config: point at your gateway (e.g. http://localhost:8080 when running backend)
+    var API_BASE = window.DOC_AGENT_API_BASE || 'http://localhost:8080';
+    var params = new URLSearchParams(window.location.search);
+    var projectId = params.get('project_id') || 'default';
+
+    var gatewayPath = '/api.proto.v1.GatewayService';
+
+    function connectCall(method, body) {
+        var url = API_BASE + gatewayPath + '/' + method;
+        return fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+            body: JSON.stringify(body)
+        }).then(function (r) {
+            if (!r.ok) throw new Error('API ' + r.status + ': ' + r.statusText);
+            return r.json();
+        });
+    }
+
+    // --- TOC (GetDocumentSections)
+    var tocNav = document.getElementById('toc-nav');
+    var tocLoading = document.getElementById('toc-loading');
+    var sections = [];
+    var selectedDocumentId = null;
+
+    function iconForTitle(title) {
+        var t = (title || '').toLowerCase();
+        if (t.includes('start') || t.includes('intro')) return 'rocket_launch';
+        if (t.includes('auth') || t.includes('key')) return 'lock';
+        if (t.includes('endpoint') || t.includes('api')) return 'list';
+        if (t.includes('error')) return 'warning';
+        if (t.includes('webhook')) return 'webhook';
+        if (t.includes('deploy')) return 'cloud_upload';
+        if (t.includes('config')) return 'settings';
+        return 'description';
+    }
+
+    function renderTocSection(section, depth) {
+        var url = section.url || '';
+        var title = section.title || 'Untitled';
+        var isActive = selectedDocumentId === url;
+        var div = document.createElement('div');
+        div.className = depth > 0 ? 'ml-3 mt-1' : '';
+        var link = document.createElement('a');
+        link.href = '#';
+        link.dataset.documentId = url;
+        link.className = 'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg group ' +
+            (isActive ? 'text-primary bg-primary-light/50 border-l-2 border-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
+        link.innerHTML = '<span class="material-symbols-outlined text-[18px] ' + (isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600') + '">' + iconForTitle(title) + '</span> ' + escapeHtml(title);
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            if (url) selectAndLoadDocument(url);
+        });
+        div.appendChild(link);
+        if (section.children && section.children.length) {
+            var ul = document.createElement('ul');
+            ul.className = 'space-y-0.5 mt-0.5';
+            section.children.forEach(function (child) {
+                var li = document.createElement('li');
+                li.appendChild(renderTocSection(child, depth + 1));
+                ul.appendChild(li);
+            });
+            div.appendChild(ul);
+        }
+        return div;
+    }
+
+    function escapeHtml(s) {
+        var div = document.createElement('div');
+        div.textContent = s;
+        return div.innerHTML;
+    }
+
+    function selectAndLoadDocument(documentId) {
+        selectedDocumentId = documentId;
+        // Update TOC active state
+        tocNav.querySelectorAll('a[data-document-id]').forEach(function (a) {
+            var active = a.dataset.documentId === documentId;
+            a.className = 'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg group ' +
+                (active ? 'text-primary bg-primary-light/50 border-l-2 border-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
+            var icon = a.querySelector('.material-symbols-outlined');
+            if (icon) icon.className = 'material-symbols-outlined text-[18px] ' + (active ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600');
+        });
+        loadDocument(documentId);
+    }
+
+    function loadSections() {
+        connectCall('GetDocumentSections', { projectId: projectId })
+            .then(function (data) {
+                tocLoading.style.display = 'none';
+                sections = data.sections || [];
+                if (sections.length === 0) {
+                    tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">No sections for this project.</div>';
+                    return;
+                }
+                var container = document.createElement('div');
+                container.className = 'space-y-1';
+                sections.forEach(function (section) {
+                    container.appendChild(renderTocSection(section, 0));
+                });
+                tocNav.innerHTML = '';
+                tocNav.appendChild(container);
+                // Default: load first section (first leaf or first section with url)
+                var first = firstSectionUrl(sections);
+                if (first) selectAndLoadDocument(first);
+            })
+            .catch(function (err) {
+                tocLoading.textContent = 'Failed to load TOC: ' + (err.message || String(err));
+                tocLoading.classList.add('text-red-600');
+            });
+    }
+
+    function firstSectionUrl(sectionList) {
+        for (var i = 0; i < sectionList.length; i++) {
+            var s = sectionList[i];
+            if (s.url) return s.url;
+            if (s.children && s.children.length) {
+                var child = firstSectionUrl(s.children);
+                if (child) return child;
+            }
+        }
+        return null;
+    }
+
+    // --- Main content (GetDocument)
+    var docContent = document.getElementById('doc-content');
+    var breadcrumb = document.getElementById('breadcrumb');
+
+    function loadDocument(documentId) {
+        docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
+        connectCall('GetDocument', { projectId: projectId, documentId: documentId })
+            .then(function (data) {
+                var errMsg = data.errorMsg || data.error_msg;
+                if (errMsg) {
+                    docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">' + escapeHtml(errMsg) + '</div>';
+                    return;
+                }
+                var doc = data.doc || '';
+                if (typeof marked !== 'undefined') {
+                    docContent.innerHTML = '<div class="prose prose-slate max-w-none">' + marked.parse(doc) + '</div>';
+                } else {
+                    docContent.innerHTML = '<pre class="text-sm text-slate-700 whitespace-pre-wrap font-sans">' + escapeHtml(doc) + '</pre>';
+                }
+                breadcrumb.textContent = '';
+                var span = document.createElement('span');
+                span.className = 'font-medium text-slate-900';
+                span.textContent = documentId || 'Document';
+                breadcrumb.appendChild(span);
+            })
+            .catch(function (err) {
+                docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">Failed to load document: ' + escapeHtml(err.message || String(err)) + '</div>';
+            });
+    }
+
+    // --- Chat (Chat API)
+    var chatMessages = document.getElementById('chat-messages');
+    var chatWelcome = document.getElementById('chat-welcome');
+    var chatInput = document.getElementById('chat-input');
+    var chatSend = document.getElementById('chat-send');
+    var chatClear = document.getElementById('chat-clear');
+    var chatHistory = [];
+
+    function appendMessage(role, content) {
+        var isUser = role === 'user';
+        var wrap = document.createElement('div');
+        wrap.className = 'flex gap-3' + (isUser ? ' flex-row-reverse' : '');
+        var avatar = document.createElement('div');
+        avatar.className = 'size-8 rounded-full flex-shrink-0 flex items-center justify-center mt-1 ' + (isUser ? 'bg-slate-200 text-slate-500' : 'bg-indigo-100 text-indigo-600');
+        if (isUser) {
+            avatar.innerHTML = '<span class="text-sm font-medium">You</span>';
+        } else {
+            avatar.innerHTML = '<span class="material-symbols-outlined text-[16px]">smart_toy</span>';
+        }
+        var col = document.createElement('div');
+        col.className = 'flex flex-col gap-1 max-w-[85%]' + (isUser ? ' items-end' : '');
+        var label = document.createElement('span');
+        label.className = 'text-xs font-bold text-slate-500 ' + (isUser ? 'mr-1' : 'ml-1');
+        label.textContent = isUser ? 'You' : 'Assistant';
+        var bubble = document.createElement('div');
+        bubble.className = (isUser ? 'bg-primary text-white' : 'bg-white border border-slate-200') + ' p-3 rounded-2xl shadow-sm text-sm leading-relaxed ' + (isUser ? 'rounded-tr-none' : 'rounded-tl-none');
+        bubble.innerHTML = typeof content === 'string' ? escapeHtml(content).replace(/\n/g, '<br>') : content;
+        col.appendChild(label);
+        col.appendChild(bubble);
+        wrap.appendChild(avatar);
+        wrap.appendChild(col);
+        chatMessages.appendChild(wrap);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function setChatLoading(loading) {
+        chatSend.disabled = loading;
+        chatSend.querySelector('.material-symbols-outlined').textContent = loading ? 'hourglass_empty' : 'arrow_upward';
+    }
+
+    function sendChatMessage() {
+        var text = (chatInput.value || '').trim();
+        if (!text) return;
+        chatInput.value = '';
+        chatHistory.push({ role: 'user', content: text });
+        appendMessage('user', text);
+        setChatLoading(true);
+        var messages = chatHistory.map(function (m) { return { role: m.role, content: m.content }; });
+        connectCall('Chat', { messages: messages, projectId: projectId })
+            .then(function (data) {
+                var content = (data && data.content) ? data.content : 'No response.';
+                chatHistory.push({ role: 'assistant', content: content });
+                appendMessage('assistant', content);
+            })
+            .catch(function (err) {
+                appendMessage('assistant', 'Error: ' + (err.message || String(err)));
+            })
+            .finally(function () { setChatLoading(false); });
+    }
+
+    chatSend.addEventListener('click', sendChatMessage);
+    chatInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChatMessage(); }
+    });
+    function getWelcomeEl() {
+        var w = document.createElement('div');
+        w.className = 'flex gap-3';
+        w.id = 'chat-welcome';
+        w.innerHTML = '<div class="size-8 rounded-full bg-indigo-100 flex-shrink-0 flex items-center justify-center text-indigo-600 mt-1"><span class="material-symbols-outlined text-[16px]">smart_toy</span></div><div class="flex flex-col gap-1 max-w-[85%]"><span class="text-xs font-bold text-slate-500 ml-1">Assistant</span><div class="bg-white border border-slate-200 p-3 rounded-2xl rounded-tl-none shadow-sm text-sm text-slate-700 leading-relaxed">Hello! I\'m your documentation assistant. Ask me anything about this project\'s docs.</div></div>';
+        return w;
+    }
+    chatClear.addEventListener('click', function () {
+        chatHistory = [];
+        while (chatMessages.lastChild) chatMessages.removeChild(chatMessages.lastChild);
+        chatMessages.appendChild(getWelcomeEl());
+    });
+
+    // --- Init
+    loadSections();
+})();
+    </script>
+</body>
+
+</html>
