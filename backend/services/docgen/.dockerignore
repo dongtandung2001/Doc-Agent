@@ -23,7 +23,6 @@ vendor/
 
 # Docs and markdown
 README.md
-*.md
 docs/
 
 # Logs

@@ -12,6 +12,17 @@ import (
 )
 
 func main() {
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		log.Fatalf("failed to create logs directory: %v", err)
+	}
+	file, err := os.OpenFile("logs/log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	defer file.Close()
+	log.SetOutput(file)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -60,5 +71,6 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Shutting down document generation worker...")
+	clients.GetGlobalFileCache().Shutdown()
 	docgenSvc.Shutdown()
 }

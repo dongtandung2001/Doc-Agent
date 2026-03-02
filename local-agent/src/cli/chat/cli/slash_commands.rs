@@ -22,12 +22,28 @@ pub fn parse_and_execute<'a>(
             return None;
         }
 
-        // Remove the '/' prefix and match the command
-        let command_name = &trimmed[1..];
+        // Remove the '/' prefix
+        let body = &trimmed[1..];
 
-        match command_name {
+        // Split into the "verb" (e.g., 'init') and the "args" (e.g., './path')
+        // split_once returns Some((left, right)) if a space is found, else None
+        let (cmd, args) = match body.split_once(' ') {
+            Some((v, a)) => (v, Some(a.trim())), // Found a space, trim the args
+            None => (body, None),                // No space, the whole body is the verb
+        };
+
+        println!("Command: {}, Args: {:?}, Root: {}", cmd, args, root_dir);
+
+        match cmd {
             "quit" | "exit" | "q" => Some(quit::execute()),
-            "init" | "start" | "doc_generation" => Some(doc_gen::execute(root_dir, api_client).await),
+
+            "init" | "start" | "doc_generation" => {
+                // If the user provided args, use them; otherwise use root_dir
+                let path = args.unwrap_or(root_dir);
+                println!("Using path: {}", path);
+                Some(doc_gen::execute(path, api_client).await)
+            }
+
             _ => None,
         }
     })

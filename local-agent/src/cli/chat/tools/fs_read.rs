@@ -50,7 +50,20 @@ impl Tool for FsReadTool {
 
     async fn invoke(&self, args: Value) -> Result<String> {
         let args: FsReadArgs = serde_json::from_value(args)?;
-        let content = fs::read_to_string(&args.path).await?;
+
+        let metadata = fs::metadata(&args.path)
+            .await
+            .map_err(|e| eyre::eyre!("Cannot access '{}': {}", args.path, e))?;
+        if metadata.is_dir() {
+            bail!(
+                "'{}' is a directory, not a file. Use fs_scan to list its contents.",
+                args.path
+            );
+        }
+
+        let content = fs::read_to_string(&args.path)
+            .await
+            .map_err(|e| eyre::eyre!("Failed to read '{}': {}", args.path, e))?;
 
         if args.start_line.is_some() || args.end_line.is_some() {
             let lines: Vec<&str> = content.lines().collect();

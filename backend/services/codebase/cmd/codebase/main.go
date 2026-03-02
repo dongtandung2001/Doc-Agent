@@ -21,6 +21,9 @@ import (
 func main() {
 	// Load .env file if it exists
 	_ = godotenv.Load()
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		log.Fatalf("failed to create logs directory: %v", err)
+	}
 	file, err := os.OpenFile("logs/log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		log.Fatalf("failed to open log file: %v", err)
@@ -90,6 +93,7 @@ func main() {
 		signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 		<-sigChan
 		log.Println("Shutting down codebase analysis service...")
+		clients.GetGlobalFileCache().Shutdown()
 		grpcSrv.GracefulStop()
 	}()
 

@@ -24,7 +24,7 @@ func NewDocGenService(
 	srv := asynq.NewServer(
 		redisClient.GetRedisOpt(),
 		asynq.Config{
-			Concurrency: 10, // Process up to 10 tasks concurrently
+			Concurrency: 1, // Process up to 10 tasks concurrently
 			Queues: map[string]int{
 				"default": 1, // Priority level for default queue
 			},
@@ -36,7 +36,7 @@ func NewDocGenService(
 		gatewayClient: gatewayClient,
 		redisClient:   redisClient,
 		server:        srv,
-	} 
+	}
 }
 
 // StartWorker starts the asynq server to consume tasks from Redis MQ

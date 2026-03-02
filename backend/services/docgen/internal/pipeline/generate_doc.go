@@ -23,23 +23,23 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 		return "", nil
 	}
 
-	// prompt, ok := chatContext.Get("prompt")
-	// if !ok {
-	// 	log.Println("No prompt found in chat context")
-	// 	return "", nil
-	// }
+	prompt, ok := chatContext.Get("prompt")
+	if !ok {
+		log.Println("No prompt found in chat context")
+		return "", nil
+	}
 
-	// code_files, ok := chatContext.Get("code_files")
-	// if !ok {
-	// 	log.Println("No code files found in chat context")
-	// 	return "", nil
-	// }
+	code_files, ok := chatContext.Get("code_files")
+	if !ok {
+		log.Println("No code files found in chat context")
+		return "", nil
+	}
 
-	// projectType, ok := chatContext.Get("projectType")
-	// if !ok {
-	// 	log.Println("No project type found in chat context")
-	// 	return "", nil
-	// }
+	projectType, ok := chatContext.Get("projectType")
+	if !ok {
+		log.Println("No project type found in chat context")
+		return "", nil
+	}
 
 	base_prompt, err := os.ReadFile("internal/prompts/generate_doc.md")
 	if err != nil {
@@ -48,7 +48,7 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 	}
 
 	// init messages array
-	// log.Printf("Generating documentation for project type: %s with code_files=%v, title=%s, prompt=%s", projectType, code_files, title, prompt)
+	log.Printf("Generating documentation for project type: %s with code_files=%v, title=%s, prompt=%s", projectType, code_files, title, prompt)
 	messages := []*apiv1.ChatMessage{}
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
@@ -65,7 +65,7 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 	}
 
 	// store generated documentation local storage
-	docsDir := "/generated_docs"
+	docsDir := "/app/generated_docs"
 	if err := os.MkdirAll(docsDir, 0755); err != nil {
 		log.Println("Failed to create generated_docs directory:", err)
 		return "", err
