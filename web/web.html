@@ -351,21 +351,36 @@
     }
 
     // --- Local file mode: fetch a .md file and render it (no backend required)
+    function slugFromTitle(title) {
+        return (title || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
     function buildTocFromMarkdown(md) {
         var sections = [];
         var lines = md.split('\n');
-        var stack = [{ children: sections, depth: 0 }];
+        var stack = [{ children: sections, depth: 0, path: [] }];
+        var usedIds = {};
         for (var i = 0; i < lines.length; i++) {
             var line = lines[i];
             var m = line.match(/^(#{1,6})\s+(.+)$/);
             if (!m) continue;
             var depth = m[1].length;
             var title = m[2].trim();
-            var id = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-            var node = { title: title, url: '#' + id, children: [] };
+            var slug = slugFromTitle(title);
             while (stack.length > 1 && stack[stack.length - 1].depth >= depth) stack.pop();
+            var parentPath = stack[stack.length - 1].path;
+            var segment = slug;
+            var fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            if (usedIds[fullId]) {
+                usedIds[fullId]++;
+                segment = slug + '-' + usedIds[fullId];
+                fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            } else {
+                usedIds[fullId] = 1;
+            }
+            var node = { title: title, url: '#' + fullId, children: [] };
             stack[stack.length - 1].children.push(node);
-            stack.push({ children: node.children, depth: depth });
+            stack.push({ children: node.children, depth: depth, path: parentPath.concat([segment]) });
         }
         return sections;
     }
@@ -417,6 +432,28 @@
         if (!container) return;
         var prose = container.querySelector('.prose');
         if (!prose) return;
+        // Apply heading ids that match TOC links (hierarchical path + slug for uniqueness)
+        var usedIds = {};
+        var pathStack = [];
+        prose.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function (heading) {
+            var depth = parseInt(heading.tagName.charAt(1), 10);
+            var text = heading.textContent.trim();
+            if (!text) return;
+            while (pathStack.length > 0 && pathStack[pathStack.length - 1].depth >= depth) pathStack.pop();
+            var parentPath = pathStack.length ? pathStack[pathStack.length - 1].path : [];
+            var slug = slugFromTitle(text);
+            var segment = slug;
+            var fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            if (usedIds[fullId]) {
+                usedIds[fullId]++;
+                segment = slug + '-' + usedIds[fullId];
+                fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            } else {
+                usedIds[fullId] = 1;
+            }
+            heading.id = fullId;
+            pathStack.push({ depth: depth, path: parentPath.concat([segment]) });
+        });
         if (typeof hljs !== 'undefined') {
             prose.querySelectorAll('pre code:not(.language-mermaid)').forEach(function (block) {
                 hljs.highlightElement(block);
