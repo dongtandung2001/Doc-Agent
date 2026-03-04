@@ -60,6 +60,7 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 </head>
 
 <body class="bg-background-light text-slate-900 font-display antialiased overflow-hidden h-screen flex flex-col">
@@ -189,6 +190,11 @@
 
     var gatewayPath = '/api.proto.v1.GatewayService';
 
+    // Initialize Mermaid (for ```mermaid``` code blocks in markdown)
+    if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+    }
+
     function connectCall(method, body) {
         var url = API_BASE + gatewayPath + '/' + method;
         return fetch(url, {
@@ -253,6 +259,38 @@
         var div = document.createElement('div');
         div.textContent = s;
         return div.innerHTML;
+    }
+
+    // Transform ```mermaid``` code blocks into rendered diagrams
+    function renderMermaid(root) {
+        if (!window.mermaid) return;
+
+        var codeBlocks = root.querySelectorAll('pre code.language-mermaid, code.language-mermaid');
+        if (!codeBlocks.length) return;
+
+        codeBlocks.forEach(function (codeEl) {
+            var parent = codeEl.parentElement;
+            var text = codeEl.textContent;
+            var container = document.createElement('div');
+            container.className = 'mermaid';
+            container.textContent = text;
+
+            if (parent && parent.tagName && parent.tagName.toLowerCase() === 'pre') {
+                parent.replaceWith(container);
+            } else {
+                codeEl.replaceWith(container);
+            }
+        });
+
+        try {
+            if (typeof mermaid.run === 'function') {
+                mermaid.run({ nodes: root.querySelectorAll('.mermaid') });
+            } else if (typeof mermaid.init === 'function') {
+                mermaid.init(undefined, root.querySelectorAll('.mermaid'));
+            }
+        } catch (e) {
+            console.error('Mermaid render error', e);
+        }
     }
 
     function selectAndLoadDocument(documentId) {
@@ -325,6 +363,9 @@
                 } else {
                     docContent.innerHTML = '<pre class="text-sm text-slate-700 whitespace-pre-wrap font-sans">' + escapeHtml(doc) + '</pre>';
                 }
+
+                // After markdown is rendered, upgrade any ```mermaid``` blocks to diagrams
+                renderMermaid(docContent);
                 breadcrumb.textContent = '';
                 var span = document.createElement('span');
                 span.className = 'font-medium text-slate-900';
