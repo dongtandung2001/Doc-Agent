@@ -21,6 +21,7 @@ type BackendConfig struct {
 	DocgenService     ServiceEndpoint `mapstructure:"docgen"`
 	AIService         ServiceEndpoint `mapstructure:"ai"`
 	LocalAgentService ServiceEndpoint `mapstructure:"local_agent"`
+	DatabaseService   ServiceEndpoint `mapstructure:"database"`
 }
 
 type ServiceEndpoint struct {

@@ -19,6 +19,9 @@ service GatewayService {
   // Request file content (gRPC endpoint - proxies to Local Agent)
   rpc RequestFileContent(RequestFileContentRequest) returns (RequestFileContentResponse);
 
+  // Store document (HTTPS endpoint - proxies to Database Service)
+  rpc StoreDocument(StoreDocumentRequest) returns (StoreDocumentResponse);
+
   // Get generated documentation (HTTPS endpoint - proxies to Database Service)
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
 
