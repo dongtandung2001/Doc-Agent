@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -60,7 +60,13 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<<<<<<< Updated upstream
     <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+=======
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+>>>>>>> Stashed changes
 </head>
 
 <body class="bg-background-light text-slate-900 font-display antialiased overflow-hidden h-screen flex flex-col">
@@ -184,9 +190,13 @@
     <script>
 (function () {
     // --- Config: point at your gateway (e.g. http://localhost:8080 when running backend)
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({ headerIds: true, mangle: false, gfm: true, breaks: true });
+    }
     var API_BASE = window.DOC_AGENT_API_BASE || 'http://localhost:8080';
     var params = new URLSearchParams(window.location.search);
     var projectId = params.get('project_id') || 'default';
+    var fileParam = params.get('file'); // e.g. ?file=test.md to load and render a local .md file
 
     var gatewayPath = '/api.proto.v1.GatewayService';
 
@@ -344,11 +354,101 @@
         return null;
     }
 
+    // --- Local file mode: fetch a .md file and render it (no backend required)
+    function buildTocFromMarkdown(md) {
+        var sections = [];
+        var lines = md.split('\n');
+        var stack = [{ children: sections, depth: 0 }];
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var m = line.match(/^(#{1,6})\s+(.+)$/);
+            if (!m) continue;
+            var depth = m[1].length;
+            var title = m[2].trim();
+            var id = title.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+            var node = { title: title, url: '#' + id, children: [] };
+            while (stack.length > 1 && stack[stack.length - 1].depth >= depth) stack.pop();
+            stack[stack.length - 1].children.push(node);
+            stack.push({ children: node.children, depth: depth });
+        }
+        return sections;
+    }
+
+    function loadLocalFile(filename) {
+        docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
+        tocLoading.style.display = 'block';
+        tocLoading.textContent = 'Loading…';
+        fetch(filename)
+            .then(function (r) {
+                if (!r.ok) throw new Error('Failed to load ' + filename + ': ' + r.status);
+                return r.text();
+            })
+            .then(function (md) {
+                tocLoading.style.display = 'none';
+                var sections = buildTocFromMarkdown(md);
+                if (sections.length > 0) {
+                    var container = document.createElement('div');
+                    container.className = 'space-y-1';
+                    sections.forEach(function (section) {
+                        container.appendChild(renderTocSection(section, 0));
+                    });
+                    tocNav.innerHTML = '';
+                    tocNav.appendChild(container);
+                } else {
+                    tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">No headings in document.</div>';
+                }
+                var html = typeof marked !== 'undefined' ? marked.parse(md) : escapeHtml(md).replace(/\n/g, '<br>');
+                docContent.innerHTML = '<div class="prose prose-slate max-w-none">' + html + '</div>';
+                enhanceRenderedContent(docContent);
+                breadcrumb.textContent = '';
+                var span = document.createElement('span');
+                span.className = 'font-medium text-slate-900';
+                span.textContent = filename;
+                breadcrumb.appendChild(span);
+            })
+            .catch(function (err) {
+                tocLoading.style.display = 'none';
+                tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-red-600">Failed to load TOC.</div>';
+                docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">Failed to load file: ' + escapeHtml(err.message || String(err)) + '</div>';
+            });
+    }
+
     // --- Main content (GetDocument)
     var docContent = document.getElementById('doc-content');
     var breadcrumb = document.getElementById('breadcrumb');
 
+    function enhanceRenderedContent(container) {
+        if (!container) return;
+        var prose = container.querySelector('.prose');
+        if (!prose) return;
+        if (typeof hljs !== 'undefined') {
+            prose.querySelectorAll('pre code:not(.language-mermaid)').forEach(function (block) {
+                hljs.highlightElement(block);
+            });
+        }
+        var mermaidBlocks = prose.querySelectorAll('pre code.language-mermaid');
+        if (typeof mermaid !== 'undefined' && mermaidBlocks.length > 0) {
+            if (!window._mermaidInited) {
+                mermaid.initialize({ startOnLoad: false });
+                window._mermaidInited = true;
+            }
+            mermaidBlocks.forEach(function (code) {
+                var pre = code.closest('pre');
+                var div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = code.textContent;
+                pre.parentNode.replaceChild(div, pre);
+            });
+            mermaid.run({ nodes: prose.querySelectorAll('.mermaid') }).catch(function (e) { console.warn('Mermaid:', e); });
+        }
+    }
+
     function loadDocument(documentId) {
+        if (fileParam && documentId && documentId.charAt(0) === '#') {
+            var el = document.getElementById(documentId.slice(1));
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
         docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
         connectCall('GetDocument', { projectId: projectId, documentId: documentId })
             .then(function (data) {
@@ -360,6 +460,7 @@
                 var doc = data.doc || '';
                 if (typeof marked !== 'undefined') {
                     docContent.innerHTML = '<div class="prose prose-slate max-w-none">' + marked.parse(doc) + '</div>';
+                    enhanceRenderedContent(docContent);
                 } else {
                     docContent.innerHTML = '<pre class="text-sm text-slate-700 whitespace-pre-wrap font-sans">' + escapeHtml(doc) + '</pre>';
                 }
@@ -455,7 +556,11 @@
     });
 
     // --- Init
-    loadSections();
+    if (fileParam) {
+        loadLocalFile(fileParam);
+    } else {
+        loadSections();
+    }
 })();
     </script>
 </body>
