@@ -13,9 +13,9 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/config"
+	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/db"
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 
-	// "github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/db"
 	grpcserver "github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/grpc"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/repository"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/service"
@@ -32,11 +32,11 @@ func main() {
 		log.Fatal("PostgreSQL URL is required (set POSTGRES_URL or database.postgres_url)")
 	}
 
-	// // Run migrations
-	// if err := db.RunMigrations(cfg.Database.PostgresURL); err != nil {
-	// 	log.Fatalf("Failed to run migrations: %v", err)
-	// }
-	// log.Println("Database migrations completed")
+	// Run migrations
+	if err := db.RunMigrations(cfg.Database.PostgresURL); err != nil {
+		log.Fatalf("Failed to run migrations: %v", err)
+	}
+	log.Println("Database migrations completed")
 
 	// Connect to PostgreSQL
 	pool, err := pgxpool.New(context.Background(), cfg.Database.PostgresURL)

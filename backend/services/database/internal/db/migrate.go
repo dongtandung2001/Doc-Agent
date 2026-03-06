@@ -2,7 +2,9 @@ package db
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
+	"time"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -11,16 +13,23 @@ import (
 
 // RunMigrations runs database migrations from the migrations directory
 func RunMigrations(postgresURL string) error {
-	// Try multiple paths: ./migrations (when running from service root), migrations (relative)
 	migrationsPath, err := filepath.Abs("migrations")
 	if err != nil {
 		return fmt.Errorf("resolve migrations path: %w", err)
 	}
 
-	m, err := migrate.New(
-		fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath)),
-		postgresURL,
-	)
+	var m *migrate.Migrate
+	for attempt := 1; attempt <= 10; attempt++ {
+		m, err = migrate.New(
+			fmt.Sprintf("file://%s", filepath.ToSlash(migrationsPath)),
+			postgresURL,
+		)
+		if err == nil {
+			break
+		}
+		log.Printf("Migration attempt %d/10 failed: %v — retrying in 3s", attempt, err)
+		time.Sleep(3 * time.Second)
+	}
 	if err != nil {
 		return fmt.Errorf("create migrate instance: %w", err)
 	}

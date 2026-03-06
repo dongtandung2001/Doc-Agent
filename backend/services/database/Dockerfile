@@ -44,6 +44,9 @@ COPY --from=builder --chown=appuser:appuser /bin/database /app/database
 # Copy config if needed
 COPY --chown=appuser:appuser services/database/configs ./configs
 
+# Copy migrations
+COPY --chown=appuser:appuser services/database/migrations ./migrations
+
 # Create logs directory with proper ownership
 RUN mkdir -p /app/logs && chown -R appuser:appuser /app/logs
 
