@@ -1,6 +1,7 @@
 package pipeline
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -8,6 +9,7 @@ import (
 
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 	chatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 
 	"github.com/hibiken/asynq"
 )
@@ -81,7 +83,7 @@ const (
 	TaskTypeDocGenInstruction = "docgen:instruction"
 )
 
-func EnqueueInstruction(chatCtx chatContext.ChatContext, instructionJson string, redisClient *clients.RedisClient) (bool, error) {
+func EnqueueInstruction(chatCtx chatContext.ChatContext, instructionJson string, redisClient *clients.RedisClient, dbClient *clients.DatabaseClient) (bool, error) {
 	items, err := parseInstructionJson(instructionJson)
 	if err != nil {
 		return false, err
@@ -104,10 +106,37 @@ func EnqueueInstruction(chatCtx chatContext.ChatContext, instructionJson string,
 	flatItems := flattenItems(items, "", projectType.(string), code_files.(string))
 	log.Printf("Flattened %d items for processing: %+v", len(flatItems), flatItems)
 
+	// Build title→name map so we can resolve parent IDs by parent title
+	titleToName := make(map[string]string, len(flatItems))
+	for _, item := range flatItems {
+		titleToName[item.Title] = item.Name
+	}
+
+	const projectID = "1" // TODO: replace with real project ID
+
 	client := redisClient.GetMQClient()
 	enqueuedCount := 0
 
-	for _, item := range flatItems {
+	for i, item := range flatItems {
+		// Store section in database before enqueuing
+		sectionReq := &apiv1.StoreSectionRequest{
+			Id:          item.Name,
+			ProjectId:   projectID,
+			Title:       item.Title,
+			Description: item.Prompt,
+			Order:       int32(i),
+		}
+		if item.Parent != "" {
+			if parentName, ok := titleToName[item.Parent]; ok {
+				sectionReq.ParentId = parentName
+			}
+		}
+		if resp, err := dbClient.StoreSection(context.Background(), sectionReq); err != nil {
+			log.Printf("Error storing section %s: %v", item.Title, err)
+		} else if !resp.Success {
+			log.Printf("Failed to store section %s", item.Title)
+		}
+
 		payload, err := json.Marshal(item)
 		if err != nil {
 			log.Printf("Error marshaling item %s: %v", item.Title, err)

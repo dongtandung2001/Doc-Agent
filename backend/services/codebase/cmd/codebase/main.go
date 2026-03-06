@@ -66,8 +66,14 @@ func main() {
 	}
 	defer redisClient.Close()
 
+	dbClient, err := clients.NewDatabaseClient(cfg.Database.Host, cfg.Database.Port)
+	if err != nil {
+		log.Fatalf("Failed to connect to Database service: %v", err)
+	}
+	defer dbClient.Close()
+
 	// Initialize service layer
-	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient, redisClient)
+	analysisSvc := service.NewAnalysisService(aiClient, gatewayClient, redisClient, dbClient)
 
 	// Initialize gRPC server
 	grpcSrv := grpc.NewServer(

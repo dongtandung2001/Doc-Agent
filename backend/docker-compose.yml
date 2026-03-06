@@ -38,11 +38,14 @@ services:
       - GATEWAY_PORT=8080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DATABASE_HOST=database
+      - DATABASE_PORT=9002
       - CACHE_STATS_FILE=/app/logs/cache_stats.json
     volumes:
       - ./logs/codebase:/app/logs
     depends_on:
       - redis
+      - database
     networks:
       - doc-agent-network
 
@@ -59,6 +62,8 @@ services:
       - GATEWAY_PORT=8080
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DATABASE_HOST=database
+      - DATABASE_PORT=9002
       - CACHE_STATS_FILE=/app/logs/cache_stats.json
     volumes:
       - ./generated_docs:/app/generated_docs
@@ -66,6 +71,7 @@ services:
     depends_on:
       - gateway
       - redis
+      - database
     networks:
       - doc-agent-network
 

@@ -30,13 +30,15 @@ type Item struct {
 type TaskHandler struct {
 	aiClient      *clients.AIClient
 	gatewayClient *clients.GatewayClient
+	dbClient      *clients.DatabaseClient
 }
 
 // NewTaskHandler creates a new task handler with necessary dependencies
-func NewTaskHandler(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) *TaskHandler {
+func NewTaskHandler(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient, dbClient *clients.DatabaseClient) *TaskHandler {
 	return &TaskHandler{
 		aiClient:      aiClient,
 		gatewayClient: gatewayClient,
+		dbClient:      dbClient,
 	}
 }
 
@@ -53,11 +55,12 @@ func (h *TaskHandler) HandleDocGenInstruction(ctx context.Context, task *asynq.T
 	chatCtx := chatContext.NewContext()
 	// Set item-specific context
 	chatCtx.Set("title", item.Title)
+	chatCtx.Set("name", item.Name)
 	chatCtx.Set("prompt", item.Prompt)
 	chatCtx.Set("projectType", item.ProjectType)
 	chatCtx.Set("code_files", item.CodeFiles)
 	// Call AI and Gateway clients to generate documentation
-	_, err := pipeline.GenerateDocumentation(*chatCtx, h.aiClient, h.gatewayClient)
+	_, err := pipeline.GenerateDocumentation(*chatCtx, h.aiClient, h.gatewayClient, h.dbClient)
 	if err != nil {
 		log.Printf("Error generating documentation for %s: %v", item.Title, err)
 		return err

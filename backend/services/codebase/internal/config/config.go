@@ -7,10 +7,16 @@ import (
 )
 
 type Config struct {
-	Server  ServerConfig
-	AI      AIServiceConfig
-	Gateway GatewayServiceConfig
-	Redis   RedisConfig
+	Server   ServerConfig
+	AI       AIServiceConfig
+	Gateway  GatewayServiceConfig
+	Redis    RedisConfig
+	Database DatabaseServiceConfig
+}
+
+type DatabaseServiceConfig struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
 }
 
 type AIServiceConfig struct {
@@ -44,6 +50,8 @@ func Load() (*Config, error) {
 	// Set defaults
 	viper.SetDefault("gateway.host", "localhost")
 	viper.SetDefault("gateway.port", 8080)
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", 9002)
 	viper.SetDefault("redis.host", "localhost")
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.password", "")

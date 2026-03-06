@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
@@ -15,7 +12,7 @@ import (
 	chatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
 )
 
-func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) (string, error) {
+func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *clients.AIClient, gatewayClient *clients.GatewayClient, dbClient *clients.DatabaseClient) (string, error) {
 
 	title, ok := chatContext.Get("title")
 	if !ok {
@@ -26,6 +23,12 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 	prompt, ok := chatContext.Get("prompt")
 	if !ok {
 		log.Println("No prompt found in chat context")
+		return "", nil
+	}
+
+	name, ok := chatContext.Get("name")
+	if !ok {
+		log.Println("No name found in chat context")
 		return "", nil
 	}
 
@@ -47,56 +50,42 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 		return "", err
 	}
 
-	// init messages array
 	log.Printf("Generating documentation for project type: %s with code_files=%v, title=%s, prompt=%s", projectType, code_files, title, prompt)
 	messages := []*apiv1.ChatMessage{}
 	ctx, cancel := context.WithTimeout(context.Background(), 3600*time.Second)
 	defer cancel()
 
 	req := aiClient.PrepareChatRequest(messages, &chatContext, string(base_prompt), true)
-	// set agentic mode
 	ctx = context.WithValue(ctx, clients.AgenticMode, true)
 	ctx = context.WithValue(ctx, clients.ToolRequire, true)
-	messages = req.Messages // Update messages to include the new message added by PrepareChatRequest
+	messages = req.Messages
 	generated_doc, err := aiClient.Chat(ctx, req, gatewayClient)
 	if err != nil {
 		log.Println("Error during generating documentation:", err)
 		return "", err
 	}
 
-	// store generated documentation local storage
-	docsDir := "/app/generated_docs"
-	if err := os.MkdirAll(docsDir, 0755); err != nil {
-		log.Println("Failed to create generated_docs directory:", err)
-		return "", err
-	}
-
-	// Sanitize title for filename
-	sanitizedTitle := sanitizeFilename(title.(string))
+	// Store generated documentation in the database
 	timestamp := time.Now().Format("20060102_150405")
-	filename := fmt.Sprintf("%s_%s.md", sanitizedTitle, timestamp)
-	filePath := filepath.Join(docsDir, filename)
+	fileID := fmt.Sprintf("%s_%s", name.(string), timestamp)
 
-	// Write documentation to file
-	if err := os.WriteFile(filePath, []byte(generated_doc.Content), 0644); err != nil {
-		log.Println("Failed to write documentation to file:", err)
+	resp, err := dbClient.StoreDocument(context.Background(), &apiv1.StoreDocumentRequest{
+		Id:          fileID,
+		ProjectId:   "1", // TODO: replace with real project ID
+		DocumentId:  name.(string),
+		Title:       title.(string),
+		Description: prompt.(string),
+		Content:     generated_doc.Content,
+	})
+	if err != nil {
+		log.Printf("Error storing document %s: %v", title, err)
 		return "", err
 	}
-
-	log.Printf("Documentation successfully saved to: %s", filePath)
-	return fmt.Sprintf("Success: Documentation saved to %s", filePath), nil
-}
-
-// sanitizeFilename removes or replaces characters that are invalid in filenames
-func sanitizeFilename(name string) string {
-	// Replace spaces with underscores
-	name = strings.ReplaceAll(name, " ", "_")
-	// Remove invalid characters
-	reg := regexp.MustCompile(`[^a-zA-Z0-9_-]`)
-	name = reg.ReplaceAllString(name, "")
-	// Limit length to 50 characters
-	if len(name) > 50 {
-		name = name[:50]
+	if !resp.Success {
+		log.Printf("Failed to store document %s", title)
+		return "", fmt.Errorf("failed to store document: %s", title)
 	}
-	return name
+
+	log.Printf("Documentation successfully stored for: %s (id=%s)", title, fileID)
+	return fmt.Sprintf("Success: Documentation stored with id=%s", fileID), nil
 }

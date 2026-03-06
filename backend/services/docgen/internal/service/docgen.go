@@ -12,6 +12,7 @@ type DocGenService struct {
 	aiClient      *clients.AIClient
 	gatewayClient *clients.GatewayClient
 	redisClient   *clients.RedisClient
+	dbClient      *clients.DatabaseClient
 	server        *asynq.Server
 }
 
@@ -19,12 +20,13 @@ func NewDocGenService(
 	aiClient *clients.AIClient,
 	gatewayClient *clients.GatewayClient,
 	redisClient *clients.RedisClient,
+	dbClient *clients.DatabaseClient,
 ) *DocGenService {
 	// Create asynq server configuration
 	srv := asynq.NewServer(
 		redisClient.GetRedisOpt(),
 		asynq.Config{
-			Concurrency: 1, // Process up to 10 tasks concurrently
+			Concurrency: 3, // Process up to 3 tasks concurrently
 			Queues: map[string]int{
 				"default": 1, // Priority level for default queue
 			},
@@ -35,6 +37,7 @@ func NewDocGenService(
 		aiClient:      aiClient,
 		gatewayClient: gatewayClient,
 		redisClient:   redisClient,
+		dbClient:      dbClient,
 		server:        srv,
 	}
 }
@@ -45,7 +48,7 @@ func (s *DocGenService) StartWorker() error {
 	log.Println("Waiting for tasks from Redis message queue...")
 
 	// Create task handler with dependencies
-	taskHandler := tasks.NewTaskHandler(s.aiClient, s.gatewayClient)
+	taskHandler := tasks.NewTaskHandler(s.aiClient, s.gatewayClient, s.dbClient)
 
 	// Register all task handlers
 	mux := taskHandler.RegisterHandlers()

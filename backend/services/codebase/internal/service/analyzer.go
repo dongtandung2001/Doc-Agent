@@ -14,17 +14,15 @@ type AnalysisService struct {
 	aiClient      *clients.AIClient
 	gatewayClient *clients.GatewayClient
 	redisClient   *clients.RedisClient
-	// Add dependencies:
-	// - Message queue client (RabbitMQ/Kafka) to enqueue tasks
-	// - Cache for analysis results
-	// - LLM client for classification
+	dbClient      *clients.DatabaseClient
 }
 
-func NewAnalysisService(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient, redisClient *clients.RedisClient) *AnalysisService {
+func NewAnalysisService(aiClient *clients.AIClient, gatewayClient *clients.GatewayClient, redisClient *clients.RedisClient, dbClient *clients.DatabaseClient) *AnalysisService {
 	return &AnalysisService{
 		aiClient:      aiClient,
 		gatewayClient: gatewayClient,
 		redisClient:   redisClient,
+		dbClient:      dbClient,
 	}
 }
 
@@ -68,7 +66,7 @@ func (s *AnalysisService) StartCodebaseAnalysis(
 	}
 	// Step 3: Enqueue instruction processing task
 
-	success, err3 := pipeline.EnqueueInstruction(*chatCtx, instructions, s.redisClient)
+	success, err3 := pipeline.EnqueueInstruction(*chatCtx, instructions, s.redisClient, s.dbClient)
 	if err3 != nil {
 		log.Printf("Error enqueueing instruction processing: %v", err3)
 		return nil, err3

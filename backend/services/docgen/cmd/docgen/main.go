@@ -64,7 +64,7 @@ func main() {
 	defer redisClient.Close()
 
 	// Initialize service layer
-	docgenSvc := service.NewDocGenService(aiClient, gatewayClient, redisClient)
+	docgenSvc := service.NewDocGenService(aiClient, gatewayClient, redisClient, dbClient)
 
 	// Start message queue worker
 	go func() {

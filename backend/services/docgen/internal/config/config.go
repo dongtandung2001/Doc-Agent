@@ -44,7 +44,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
 	viper.SetDefault("database.host", "localhost")
-	viper.SetDefault("database.port", 5432)
+	viper.SetDefault("database.port", 9002)
 	viper.SetDefault("database.user", "user")
 	viper.SetDefault("database.password", "")
 
