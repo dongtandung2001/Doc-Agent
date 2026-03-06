@@ -36,6 +36,13 @@ func main() {
 	}
 	defer aiClient.Close()
 
+	// Connect to DB Service
+	dbClient, err := clients.NewDatabaseClient(cfg.Database.Host, cfg.Database.Port)
+	if err != nil {
+		log.Fatalf("Failed to connect to Database Service: %v", err)
+	}
+	defer dbClient.Close()
+
 	// Connect to Gateway (to reach Local Agent)
 	gatewayClient, err := clients.NewGatewayClient(cfg.Gateway.Host, cfg.Gateway.Port)
 	if err != nil {

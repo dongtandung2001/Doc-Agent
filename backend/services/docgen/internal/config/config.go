@@ -7,9 +7,10 @@ import (
 )
 
 type Config struct {
-	AI      ServiceEndpoint
-	Gateway ServiceEndpoint
-	Redis   RedisConfig
+	AI       ServiceEndpoint
+	Gateway  ServiceEndpoint
+	Redis    RedisConfig
+	Database DatabaseConfig
 }
 
 type ServiceEndpoint struct {
@@ -24,6 +25,13 @@ type RedisConfig struct {
 	DB       int    `mapstructure:"db"`
 }
 
+type DatabaseConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	User     string `mapstructure:"user"`
+	Password string `mapstructure:"password"`
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("docgen")
 	viper.SetConfigType("yaml")
@@ -35,6 +43,10 @@ func Load() (*Config, error) {
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.password", "")
 	viper.SetDefault("redis.db", 0)
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", 5432)
+	viper.SetDefault("database.user", "user")
+	viper.SetDefault("database.password", "")
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err

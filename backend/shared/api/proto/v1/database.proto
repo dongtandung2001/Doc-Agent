@@ -8,8 +8,11 @@ option go_package = "github.com/dongtandung2001/Doc-Agent/backend/gen/api/proto/
 
 // DatabaseService - Proxy layer between services and database
 service DatabaseService {
-  // Store generated documentation section
+  // Store generated documentation section and its file content
   rpc StoreDocument(StoreDocumentRequest) returns (StoreDocumentResponse);
+
+  // Store only a documentation section (no file content)
+  rpc StoreSection(StoreSectionRequest) returns (StoreSectionResponse);
 
   // Retrieve a specific document section
   rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse);
@@ -35,6 +38,21 @@ message StoreDocumentRequest {
 
 message StoreDocumentResponse {
   bool success = 1; // true if stored successfully
+}
+
+// StoreSection - Store only a section (no file content)
+message StoreSectionRequest {
+  string id = 1;          // Unique section ID
+  string project_id = 2;  // Project identifier
+  string title = 3;       // Section title (display name)
+  string description = 4; // Section description/summary
+  string url = 5;         // URL slug (auto-generated from title if empty)
+  string parent_id = 6;   // Parent section ID (empty for root sections)
+  int32 order = 7;        // Display order among siblings
+}
+
+message StoreSectionResponse {
+  bool success = 1;
 }
 
 // GetDocument - Retrieve document from database
