@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/repository"
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 )
 
 type DatabaseService struct {
