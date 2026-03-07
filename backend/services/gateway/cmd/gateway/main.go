@@ -42,14 +42,16 @@ func main() {
 	}
 	defer codebaseClient.Close()
 
-	// databaseClient, err := clients.NewDatabaseClient(
-	// 	"localhost", // TODO: Get from config
-	// 	9002,        // TODO: Get from config
-	// )
-	// if err != nil {
-	// 	log.Fatalf("Failed to connect to database service: %v", err)
-	// }
-	// defer databaseClient.Close()
+	databaseClient, err := clients.NewDatabaseClient(
+		cfg.Backends.DatabaseService.Host,
+		cfg.Backends.DatabaseService.Port,
+	)
+	if err != nil {
+		log.Printf("Failed to connect to database service: %v", err)
+	} else {
+		log.Printf("Connected to Database Service at %s:%d", cfg.Backends.DatabaseService.Host, cfg.Backends.DatabaseService.Port)
+	}
+	defer databaseClient.Close()
 
 	// aiClient, err := clients.NewAIClient(
 	// 	cfg.Backends.AIService.Host,
@@ -65,7 +67,7 @@ func main() {
 	gatewayHandler := handlers.NewGatewayHandler(
 		localAgentClient.GetClient(),
 		codebaseClient.GetClient(),
-		nil,
+		databaseClient.GetClient(),
 		nil,
 	)
 

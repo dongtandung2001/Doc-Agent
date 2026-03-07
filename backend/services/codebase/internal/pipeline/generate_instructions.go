@@ -288,7 +288,9 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 			- Tool results and user messages may include <system-reminder> tags. <system-reminder> tags contain useful information and reminders. They are NOT part of the user's provided input or the tool result.
 
 			# Tool usage policy
-			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the Read tool or other appropriate tools to examine ALL provided content before responding
+			- **MANDATORY**: When the user provides files, code, or content for analysis, you MUST use the fs_read tool or other appropriate tools to examine ALL provided content before responding
+			- **CRITICAL**: When you need to read files, you MUST call the fs_read function directly using structured function calling. DO NOT just describe what you want to do - actually invoke the tool.
+			- **FUNCTION CALLING**: Use the provided tools by making structured function calls. The system will execute them and return results. Never just say "let me read..." - actually call the fs_read function.
 
 			You are an AI assistant optimized for software development and repository analysis across various technology stacks.
 
@@ -365,7 +367,7 @@ func GenerateInstruction(chatContext ctx.ChatContext, aiClient *clients.AIClient
 		return "", err
 	}
 	log.Printf("GenerateInstruction: Instructions: %s", instructions)
-	return "sucess", nil
+	return instructions.Content, nil
 }
 
 func getProjectDescription(projectClassification string) string {

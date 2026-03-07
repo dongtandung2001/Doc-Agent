@@ -5,3 +5,15 @@ ai:
 gateway:
   host: "localhost"
   port: 8080
+
+redis:
+  host: "localhost"
+  port: 6379
+  db: 0
+  password: ""
+
+database:
+  host: "localhost"
+  port: 9002
+  user: "user"
+  password: "password"

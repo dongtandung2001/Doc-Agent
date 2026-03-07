@@ -5,8 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/repository"
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 )
 
 type DatabaseService struct {
@@ -126,6 +126,40 @@ func (s *DatabaseService) StoreDocument(
 	}
 
 	return &apiv1.StoreDocumentResponse{Success: true}, nil
+}
+
+func (s *DatabaseService) StoreSection(
+	ctx context.Context,
+	req *apiv1.StoreSectionRequest,
+) (*apiv1.StoreSectionResponse, error) {
+	if req.Id == "" || req.Title == "" || req.ProjectId == "" {
+		return &apiv1.StoreSectionResponse{Success: false}, nil
+	}
+
+	url := req.Url
+	if url == "" {
+		url = slugify(req.Title)
+	}
+
+	var parentID *string
+	if req.ParentId != "" {
+		parentID = &req.ParentId
+	}
+
+	section := &repository.DocumentSection{
+		ID:          req.Id,
+		ProjectID:   req.ProjectId,
+		Name:        req.Title,
+		Description: req.Description,
+		URL:         url,
+		Order:       int(req.Order),
+		ParentID:    parentID,
+	}
+	if err := s.sectionRepo.UpsertSection(ctx, section); err != nil {
+		return &apiv1.StoreSectionResponse{Success: false}, err
+	}
+
+	return &apiv1.StoreSectionResponse{Success: true}, nil
 }
 
 // buildSectionTree converts flat sections into nested tree structure

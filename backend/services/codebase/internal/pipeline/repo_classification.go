@@ -13,7 +13,7 @@ import (
 
 func ClassifyRepo(chatContext ctx.ChatContext, aiClient *clients.AIClient, gatewayClient *clients.GatewayClient) (string, error) {
 	// Construct the prompt for classification
-	prompt, err := os.ReadFile("internal/prompts//generate_classfication.md")
+	prompt, err := os.ReadFile("internal/prompts/generate_classfication.md")
 
 	if err != nil {
 		log.Printf("Error reading prompt file: %v", err)

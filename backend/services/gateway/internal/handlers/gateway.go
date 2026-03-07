@@ -66,6 +66,17 @@ func (h *GatewayHandler) GetDocument(
 	return connect.NewResponse(result), nil
 }
 
+func (h *GatewayHandler) StoreDocument(
+	ctx context.Context,
+	req *connect.Request[apiv1.StoreDocumentRequest],
+) (*connect.Response[apiv1.StoreDocumentResponse], error) {
+	result, err := h.databaseClient.StoreDocument(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(result), nil
+}
+
 // GetDocumentSections proxies to Database Service
 func (h *GatewayHandler) GetDocumentSections(
 	ctx context.Context,

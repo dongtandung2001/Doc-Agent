@@ -35,7 +35,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     };
 
     let _readme = generate_or_update_readme(&dir).await;
-
+    println!("README generation completed.");
     // Check if server is already running
     if server::is_server_running().await {
         println!("gRPC server is already running.");
@@ -68,6 +68,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
 
     //  println!("README generation completed.\n{:?}", _readme);
     // call codebase anaylsis endpoint
+    println!("Starting codebase analysis...");
     let response = api_client
         .start_codebase_analysis(serde_json::json!({
             "project_structure": dir,

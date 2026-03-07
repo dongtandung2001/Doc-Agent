@@ -1,6 +1,7 @@
 use eyre::Result;
 use reqwest::{Client, Response};
 use serde_json::{json, Value};
+use std::time::Duration;
 
 /// API client for chat
 pub struct ApiClient {
@@ -12,8 +13,14 @@ pub struct ApiClient {
 
 impl ApiClient {
     pub fn new(endpoint: &str, api_key: &str, model: &str) -> Result<Self> {
+        // Configure client with extended timeout for LLM requests
+        let client = Client::builder()
+            .timeout(Duration::from_secs(300)) // 5 minute timeout
+            .connect_timeout(Duration::from_secs(30)) // 30 second connection timeout
+            .build()?;
+
         Ok(Self {
-            client: Client::new(),
+            client,
             endpoint: endpoint.to_string(),
             api_key: api_key.to_string(),
             model: model.to_string(),
@@ -87,14 +94,14 @@ impl ApiClient {
         if !response.status().is_success() {
             let status = response.status();
             let text = response.text().await?;
-            eyre::bail!("API error {}: {}", status, text);
+            panic!("API error {}: {}", status, text);
         }
 
         // Parse JSON response
         let json: Value = response.json().await?;
         eprintln!(
             "[DEBUG] API Response: {}",
-            serde_json::to_string_pretty(&json)?
+            serde_json::to_string_pretty(&json)?,
         );
 
         Ok(json)

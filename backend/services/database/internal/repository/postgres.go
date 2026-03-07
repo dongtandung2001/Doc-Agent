@@ -28,20 +28,21 @@ func NewPostgresFileItemRepository(pool *pgxpool.Pool) *PostgresFileItemReposito
 	return &PostgresFileItemRepository{pool: pool}
 }
 
-// UpsertSection creates or updates a document section
+// UpsertSection creates or updates a document section, preserving existing fields
+// that are not provided in the new section (e.g. parent_id, order, prompt set by StoreSection)
 func (r *PostgresSectionRepository) UpsertSection(ctx context.Context, section *DocumentSection) error {
 	query := `
 		INSERT INTO document_sections (id, project_id, description, document_id, is_completed, name, "order", parent_id, prompt, url, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, NOW())
 		ON CONFLICT (id) DO UPDATE SET
 			project_id = EXCLUDED.project_id,
-			description = EXCLUDED.description,
+			description = CASE WHEN EXCLUDED.description != '' THEN EXCLUDED.description ELSE document_sections.description END,
 			document_id = EXCLUDED.document_id,
 			is_completed = EXCLUDED.is_completed,
 			name = EXCLUDED.name,
-			"order" = EXCLUDED."order",
-			parent_id = EXCLUDED.parent_id,
-			prompt = EXCLUDED.prompt,
+			"order" = CASE WHEN EXCLUDED."order" != 0 THEN EXCLUDED."order" ELSE document_sections."order" END,
+			parent_id = CASE WHEN EXCLUDED.parent_id IS NOT NULL THEN EXCLUDED.parent_id ELSE document_sections.parent_id END,
+			prompt = CASE WHEN EXCLUDED.prompt != '' THEN EXCLUDED.prompt ELSE document_sections.prompt END,
 			url = EXCLUDED.url,
 			updated_at = NOW()
 	`
@@ -125,7 +126,7 @@ func (r *PostgresFileItemRepository) GetFileItemByID(ctx context.Context, projec
 	query := `
 		SELECT id, project_id, content, description, document_section_id, document_id, extra, is_embedded, title
 		FROM document_file_items
-		WHERE project_id = $1 AND id = $2
+		WHERE project_id = $1 AND document_id = $2
 	`
 	var item DocumentFileItem
 	err := r.pool.QueryRow(ctx, query, projectID, documentID).Scan(

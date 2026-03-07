@@ -1,13 +1,22 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
 type Config struct {
-	Server  ServerConfig
-	AI      AIServiceConfig
-	Gateway GatewayServiceConfig
+	Server   ServerConfig
+	AI       AIServiceConfig
+	Gateway  GatewayServiceConfig
+	Redis    RedisConfig
+	Database DatabaseServiceConfig
+}
+
+type DatabaseServiceConfig struct {
+	Host string `mapstructure:"host"`
+	Port int    `mapstructure:"port"`
 }
 
 type AIServiceConfig struct {
@@ -25,6 +34,13 @@ type ServerConfig struct {
 	Port int    `mapstructure:"port"`
 }
 
+type RedisConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Password string `mapstructure:"password"`
+	DB       int    `mapstructure:"db"`
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("codebase")
 	viper.SetConfigType("yaml")
@@ -34,14 +50,22 @@ func Load() (*Config, error) {
 	// Set defaults
 	viper.SetDefault("gateway.host", "localhost")
 	viper.SetDefault("gateway.port", 8080)
-
-	// Enable automatic environment variable binding
-	viper.AutomaticEnv()
-	viper.BindEnv("gateway.host", "GATEWAY_HOST")
-	viper.BindEnv("gateway.port", "GATEWAY_PORT")
+	viper.SetDefault("database.host", "localhost")
+	viper.SetDefault("database.port", 9002)
+	viper.SetDefault("redis.host", "localhost")
+	viper.SetDefault("redis.port", 6379)
+	viper.SetDefault("redis.password", "")
+	viper.SetDefault("redis.db", 0)
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
+	}
+
+	// Enable env var override: REDIS_HOST -> redis.host
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+	for _, key := range viper.AllKeys() {
+		viper.BindEnv(key)
 	}
 
 	var config Config

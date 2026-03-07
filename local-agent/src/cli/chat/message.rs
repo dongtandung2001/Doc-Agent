@@ -1,6 +1,23 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Represents a function call within a tool call
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct FunctionCall {
+    pub name: String,
+    pub arguments: String,
+}
+
+/// Represents a tool call from the assistant
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolCall {
+    pub id: String,
+    pub index: i32,
+    #[serde(rename = "type")]
+    pub call_type: String,
+    pub function: FunctionCall,
+}
+
 /// Represents a message in the conversation (OpenAI format)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "role")]
@@ -9,7 +26,11 @@ pub enum Message {
     User { content: String },
 
     #[serde(rename = "assistant")]
-    Assistant { content: String },
+    Assistant {
+        content: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        tool_calls: Option<Vec<ToolCall>>,
+    },
 
     #[serde(rename = "tool")]
     Tool {
@@ -28,6 +49,18 @@ impl Message {
     pub fn assistant(content: impl Into<String>) -> Self {
         Self::Assistant {
             content: content.into(),
+            tool_calls: None,
+        }
+    }
+
+    pub fn assistant_with_tools(content: impl Into<String>, tool_calls: Vec<ToolCall>) -> Self {
+        Self::Assistant {
+            content: content.into(),
+            tool_calls: if tool_calls.is_empty() {
+                None
+            } else {
+                Some(tool_calls)
+            },
         }
     }
 

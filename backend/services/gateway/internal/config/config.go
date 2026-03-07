@@ -1,6 +1,8 @@
 package config
 
 import (
+	"strings"
+
 	"github.com/spf13/viper"
 )
 
@@ -19,6 +21,7 @@ type BackendConfig struct {
 	DocgenService     ServiceEndpoint `mapstructure:"docgen"`
 	AIService         ServiceEndpoint `mapstructure:"ai"`
 	LocalAgentService ServiceEndpoint `mapstructure:"local_agent"`
+	DatabaseService   ServiceEndpoint `mapstructure:"database"`
 }
 
 type ServiceEndpoint struct {
@@ -31,10 +34,16 @@ func Load() (*Config, error) {
 	viper.SetConfigType("yaml")
 	viper.AddConfigPath("./configs")
 	viper.AddConfigPath(".")
-	viper.AutomaticEnv()
 
 	if err := viper.ReadInConfig(); err != nil {
 		return nil, err
+	}
+
+	// Enable env var override: BACKENDS_CODEBASE_HOST -> backends.codebase.host
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	viper.AutomaticEnv()
+	for _, key := range viper.AllKeys() {
+		viper.BindEnv(key)
 	}
 
 	var config Config

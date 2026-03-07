@@ -12,9 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"google.golang.org/grpc"
 
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/config"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/db"
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
+
 	grpcserver "github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/grpc"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/repository"
 	"github.com/dongtandung2001/Doc-Agent/backend/services/database/internal/service"

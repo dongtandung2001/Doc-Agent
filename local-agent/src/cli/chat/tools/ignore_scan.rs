@@ -106,9 +106,9 @@ async fn scan_with_gitignore(path: &str, max_depth: Option<usize>) -> Result<Vec
                 "[F]"
             };
 
-            let name = entry_path.file_name().unwrap_or_default().to_string_lossy();
+            let full_path = entry_path.to_string_lossy();
 
-            collected.push(format!("{}{} {}", indent, icon, name));
+            collected.push(format!("{}{} {}", indent, icon, full_path));
         }
         collected
     })

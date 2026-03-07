@@ -39,6 +39,13 @@ func (s *Server) StoreDocument(
 	return s.service.StoreDocument(ctx, req)
 }
 
+func (s *Server) StoreSection(
+	ctx context.Context,
+	req *apiv1.StoreSectionRequest,
+) (*apiv1.StoreSectionResponse, error) {
+	return s.service.StoreSection(ctx, req)
+}
+
 func (s *Server) HealthCheck(
 	ctx context.Context,
 	req *apiv1.HealthCheckRequest,

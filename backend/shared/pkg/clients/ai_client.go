@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
@@ -89,7 +90,7 @@ func NewAIClient(host string, port int) (*AIClient, error) {
 
 		// Use a longer timeout for AI API calls (5 minutes default)
 		httpClient := &http.Client{
-			Timeout: 5 * time.Minute,
+			Timeout: 10 * time.Minute,
 		}
 
 		fmt.Printf("Successfully created AIClient in HTTP mode with URL: %s\n", apiURL)
@@ -154,7 +155,7 @@ func (c *AIClient) GetTools() []map[string]interface{} {
 					"properties": map[string]interface{}{
 						"path": map[string]interface{}{
 							"type":        "string",
-							"description": "File path to read. MUST use forward slashes (/) as path separators, even on Windows. Examples: 'src/main.rs', 'backend/api/server.go', 'docs/README.md'",
+							"description": "File path to read.",
 						},
 						"start_line": map[string]interface{}{
 							"type":        "integer",
@@ -174,35 +175,95 @@ func (c *AIClient) GetTools() []map[string]interface{} {
 
 // GetToolChoice returns the tool choice strategy
 // Override this method to customize tool selection behavior
-// Returns "auto" by default
+// Returns "required" to force tool usage
 func (c *AIClient) GetToolChoice() string {
 	return "auto"
 }
 
-// ExecuteTool executes a tool with the given name and file requests
-// For fs_read, it calls gatewayClient.RequestFileContent with the batch of files
+// ExecuteTool executes a tool with the given name and file requests.
+// For fs_read, it routes each file through the global FileCache with singleflight
+// coalescing: concurrent requests for the same path across workers result in a
+// single network fetch. Paths are deduplicated within the batch before lookup.
 func (c *AIClient) ExecuteTool(toolName string, fileRequests []*apiv1.FileReadArg, gatewayClient *GatewayClient) ([]*apiv1.FileReadResult, error) {
-	if toolName == "fs_read" {
-		fmt.Printf("[DEBUG] Executing fs_read tool with %d files\n", len(fileRequests))
-
-		// Call gateway to request file contents in batch
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-		defer cancel()
-
-		req := &apiv1.RequestFileContentRequest{
-			Args: fileRequests,
-		}
-		response, err := gatewayClient.RequestFileContent(ctx, req)
-		if err != nil {
-			return nil, fmt.Errorf("failed to request file content: %w", err)
-		}
-
-		// Return the FileReadResult array directly
-		log.Print("DEBUG: FileReadResults: ", response.Results)
-		return response.Results, nil
+	if toolName != "fs_read" {
+		return nil, fmt.Errorf("unknown tool: %s", toolName)
 	}
 
-	return nil, fmt.Errorf("unknown tool: %s", toolName)
+	log.Printf("[ExecuteTool] fs_read: %d file(s) requested", len(fileRequests))
+
+	cache := GetGlobalFileCache()
+
+	// Deduplicate paths within this batch so identical paths in one tool-call
+	// batch don't spawn redundant singleflight lookups.
+	uniquePaths := make(map[string]struct{}, len(fileRequests))
+	for _, req := range fileRequests {
+		uniquePaths[req.Path] = struct{}{}
+	}
+
+	// Fetch each unique path concurrently through cache + singleflight.
+	pathContent := make(map[string]string, len(uniquePaths))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	var firstErr error
+	var errOnce sync.Once
+
+	for p := range uniquePaths {
+		wg.Add(1)
+		go func(path string) {
+			defer wg.Done()
+
+			fetched := false
+			content, err := cache.GetOrFetch(path, func() (string, error) {
+				fetched = true
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+
+				resp, err := gatewayClient.RequestFileContent(ctx, &apiv1.RequestFileContentRequest{
+					Args: []*apiv1.FileReadArg{{Id: "cache-fetch", Path: path}},
+				})
+				if err != nil {
+					return "", err
+				}
+				if len(resp.Results) == 0 {
+					return "", fmt.Errorf("no result for path: %s", path)
+				}
+				return resp.Results[0].Content, nil
+			})
+
+			if fetched {
+				log.Printf("[FileCache] MISS path=%s — sent request to gateway", path)
+			} else {
+				log.Printf("[FileCache] HIT  path=%s — served from cache", path)
+			}
+
+			if err != nil {
+				errOnce.Do(func() { firstErr = err })
+				return
+			}
+
+			mu.Lock()
+			pathContent[path] = content
+			mu.Unlock()
+		}(p)
+	}
+
+	wg.Wait()
+
+	if firstErr != nil {
+		return nil, fmt.Errorf("failed to request file content: %w", firstErr)
+	}
+
+	// Map cached content back to original request IDs.
+	results := make([]*apiv1.FileReadResult, len(fileRequests))
+	for i, req := range fileRequests {
+		results[i] = &apiv1.FileReadResult{
+			Id:      req.Id,
+			Content: pathContent[req.Path],
+		}
+	}
+
+	cache.LogStats("ExecuteTool")
+	return results, nil
 }
 
 // Chat sends a chat request to the AI service (main orchestrator)
@@ -227,7 +288,7 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 	// Agentic mode: loop with tool execution
 	// Work directly with req.Messages to allow caller to see conversation history
 
-	maxIterations := 10 // Prevent infinite loops
+	maxIterations := 15 // Prevent infinite loops
 	iteration := 0
 
 	for iteration < maxIterations {
@@ -322,13 +383,42 @@ func (c *AIClient) sendMessage(ctx context.Context, req *apiv1.ChatRequest) (*Pa
 // sendHTTP handles HTTP-specific message sending
 func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*ParsedResponse, error) {
 	// Convert proto messages to JSON format
+	type toolCallFunction struct {
+		Name      string `json:"name"`
+		Arguments string `json:"arguments"`
+	}
+	type toolCall struct {
+		Id       string           `json:"id"`
+		Type     string           `json:"type"`
+		Function toolCallFunction `json:"function"`
+	}
 	type msg struct {
-		Role    string `json:"role"`
-		Content string `json:"content"`
+		Role       string      `json:"role"`
+		Content    string      `json:"content"`
+		ToolCallId string      `json:"tool_call_id,omitempty"`
+		ToolCalls  []toolCall  `json:"tool_calls,omitempty"`
 	}
 	messages := make([]msg, len(req.Messages))
 	for i, m := range req.Messages {
 		messages[i] = msg{Role: m.Role, Content: m.Content}
+		// Add tool_call_id for tool response messages
+		if m.ToolCallId != nil && *m.ToolCallId != "" {
+			messages[i].ToolCallId = *m.ToolCallId
+		}
+		// Add tool_calls for assistant messages
+		if len(m.ToolCalls) > 0 {
+			messages[i].ToolCalls = make([]toolCall, len(m.ToolCalls))
+			for j, tc := range m.ToolCalls {
+				messages[i].ToolCalls[j] = toolCall{
+					Id:   tc.Id,
+					Type: tc.Type,
+					Function: toolCallFunction{
+						Name:      tc.Function.Name,
+						Arguments: tc.Function.Arguments,
+					},
+				}
+			}
+		}
 	}
 
 	tools := []map[string]interface{}{}
@@ -360,13 +450,12 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 		ToolChoice: toolChoice,
 	}
 
-	log.Printf("DEBUG: reqBody: %+v", reqBody)
-
 	jsonData, _ := json.Marshal(reqBody)
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.apiURL, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return nil, err
 	}
+	log.Printf("DEBUG: reqBody: %+v", httpReq)
 
 	httpReq.Header.Set("Content-Type", "application/json")
 	httpReq.Header.Set("Authorization", "Bearer "+c.apiKey)

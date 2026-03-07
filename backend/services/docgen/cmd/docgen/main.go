@@ -12,6 +12,17 @@ import (
 )
 
 func main() {
+	if err := os.MkdirAll("logs", 0755); err != nil {
+		log.Fatalf("failed to create logs directory: %v", err)
+	}
+	file, err := os.OpenFile("logs/log.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	if err != nil {
+		log.Fatalf("failed to open log file: %v", err)
+	}
+	defer file.Close()
+	log.SetOutput(file)
+	log.SetFlags(log.Ldate | log.Ltime | log.Lshortfile)
+
 	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
@@ -19,11 +30,18 @@ func main() {
 	}
 
 	// Connect to AI Service
-	aiClient, err := clients.NewAIClient(cfg.AI.Host, cfg.AI.Port)
+	aiClient, err := clients.NewAIClient("", 0)
 	if err != nil {
 		log.Fatalf("Failed to connect to AI Service: %v", err)
 	}
 	defer aiClient.Close()
+
+	// Connect to DB Service
+	dbClient, err := clients.NewDatabaseClient(cfg.Database.Host, cfg.Database.Port)
+	if err != nil {
+		log.Fatalf("Failed to connect to Database Service: %v", err)
+	}
+	defer dbClient.Close()
 
 	// Connect to Gateway (to reach Local Agent)
 	gatewayClient, err := clients.NewGatewayClient(cfg.Gateway.Host, cfg.Gateway.Port)
@@ -32,12 +50,21 @@ func main() {
 	}
 	defer gatewayClient.Close()
 
-	// Initialize service layer
-	docgenSvc := service.NewDocGenService(aiClient, gatewayClient)
+	// Connect to Redis for task queue
+	redisClient, err := clients.NewRedisClient(clients.RedisConfig{
+		Host:     cfg.Redis.Host,
+		Port:     cfg.Redis.Port,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	})
+	if err != nil {
+		log.Fatalf("Failed to connect to Redis: %v", err)
+	}
+	log.Printf("Connected to Redis at %s:%d", cfg.Redis.Host, cfg.Redis.Port)
+	defer redisClient.Close()
 
-	log.Println("🚀 Document Generation Worker starting...")
-	log.Printf("   Connected to AI Service at %s:%d", cfg.AI.Host, cfg.AI.Port)
-	log.Printf("   Connected to Gateway at %s:%d", cfg.Gateway.Host, cfg.Gateway.Port)
+	// Initialize service layer
+	docgenSvc := service.NewDocGenService(aiClient, gatewayClient, redisClient, dbClient)
 
 	// Start message queue worker
 	go func() {
@@ -51,4 +78,6 @@ func main() {
 	signal.Notify(sigChan, os.Interrupt, syscall.SIGTERM)
 	<-sigChan
 	log.Println("Shutting down document generation worker...")
+	clients.GetGlobalFileCache().Shutdown()
+	docgenSvc.Shutdown()
 }

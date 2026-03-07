@@ -3,6 +3,8 @@ use futures::stream::{Stream, StreamExt, TryStreamExt};
 use reqwest::Response;
 use serde_json::Value;
 
+use super::message::ToolCall;
+
 use super::state::ToolUse;
 
 /// Parsed response from the API
@@ -12,12 +14,15 @@ pub struct ParsedResponse {
     pub assistant_text: String,
     /// Tool calls to execute (if any)
     pub tools_to_execute: Vec<ToolUse>,
+    /// All tool calls from the response
+    pub all_tool_calls: Vec<ToolCall>,
 }
 
 /// Parse a complete API response (non-incremental mode)
 pub fn parse_response(response: &Value) -> Result<ParsedResponse> {
     let mut assistant_text = String::new();
     let mut tools_to_execute = Vec::new();
+    let mut all_tool_calls = Vec::new();
 
     // Extract from choices[0].message
     if let Some(choices) = response.get("choices").and_then(|c| c.as_array()) {
@@ -36,8 +41,8 @@ pub fn parse_response(response: &Value) -> Result<ParsedResponse> {
                 // Extract tool calls
                 if let Some(tool_calls) = message.get("tool_calls").and_then(|t| t.as_array()) {
                     eprintln!("[DEBUG] Found {} tool calls", tool_calls.len());
-
                     for tool_call in tool_calls {
+                        all_tool_calls.push(serde_json::from_value(tool_call.clone())?);
                         if let Some(function) = tool_call.get("function") {
                             let id = tool_call
                                 .get("id")
@@ -71,6 +76,7 @@ pub fn parse_response(response: &Value) -> Result<ParsedResponse> {
     Ok(ParsedResponse {
         assistant_text,
         tools_to_execute,
+        all_tool_calls,
     })
 }
 

@@ -1,74 +1,128 @@
-version: '3.8'
-
 services:
   # API Gateway
   gateway:
     build:
-      context: ./services/gateway
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/gateway/Dockerfile
     ports:
       - "8080:8080"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=8080
-      - CODEBASE_HOST=codebase
-      - CODEBASE_PORT=9001
-      - DATABASE_HOST=database
-      - DATABASE_PORT=9002
+      - BACKENDS_CODEBASE_HOST=codebase
+      - BACKENDS_CODEBASE_PORT=9001
+      - BACKENDS_DATABASE_HOST=database
+      - BACKENDS_DATABASE_PORT=9002
+      - BACKENDS_LOCAL_AGENT_HOST=${LOCAL_AGENT_HOST:-host.docker.internal}
+      - BACKENDS_LOCAL_AGENT_PORT=${LOCAL_AGENT_PORT:-50051}
     depends_on:
       - codebase
-      - database
+      # - database
     networks:
       - doc-agent-network
 
   # Codebase Analysis Service
   codebase:
     build:
-      context: ./services/codebase
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/codebase/Dockerfile
     ports:
       - "9001:9001"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=9001
-      - AI_HOST=ai-service
-      - AI_PORT=50051
+      - CHAT_API_URL=${CHAT_API_URL}
+      - CHAT_API_KEY=${CHAT_API_KEY}
+      - CHAT_MODEL=${CHAT_MODEL}
       - GATEWAY_HOST=gateway
       - GATEWAY_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_HOST=database
+      - DATABASE_PORT=9002
+      - CACHE_STATS_FILE=/app/logs/cache_stats.json
+    volumes:
+      - ./logs/codebase:/app/logs
+    depends_on:
+      - redis
+      - database
     networks:
       - doc-agent-network
 
   # Document Generation Worker (consumes from MQ)
   docgen:
     build:
-      context: ./services/docgen
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/docgen/Dockerfile
     environment:
-      - AI_HOST=ai-service
-      - AI_PORT=50051
+      - CHAT_API_URL=${CHAT_API_URL}
+      - CHAT_API_KEY=${CHAT_API_KEY}
+      - CHAT_MODEL=${CHAT_MODEL}
       - GATEWAY_HOST=gateway
       - GATEWAY_PORT=8080
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - DATABASE_HOST=database
+      - DATABASE_PORT=9002
+      - CACHE_STATS_FILE=/app/logs/cache_stats.json
+    volumes:
+      - ./generated_docs:/app/generated_docs
+      - ./logs/docgen:/app/logs
     depends_on:
       - gateway
+      - redis
+      - database
     networks:
       - doc-agent-network
 
   # Database Service
   database:
     build:
-      context: ./services/database
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: services/database/Dockerfile
     ports:
       - "9002:9002"
     environment:
       - SERVER_HOST=0.0.0.0
       - SERVER_PORT=9002
-      - POSTGRES_URL=postgres://user:password@postgres:5432/docagent?sslmode=disable
-      - VECTOR_DB_URL=http://vector-db:8000
+      - DATABASE_POSTGRES_URL=postgres://user:password@postgres:5432/docagent?sslmode=disable
+      - DATABASE_VECTOR_DB_URL=http://vector-db:8000
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     networks:
       - doc-agent-network
+
+  # Redis for Task Queue
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - doc-agent-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # AI Service (Python gRPC)
+  # ai-service:
+  #   build:
+  #     context: ./services/ai-service
+  #     dockerfile: Dockerfile
+  #   ports:
+  #     - "50051:50051"
+  #   environment:
+  #     - GRPC_PORT=50051
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
+  #     - LLM_MODEL=gpt-4
+  #     - LLM_TEMPERATURE=0.7
+  #     - LLM_MAX_TOKENS=4096
+  #   networks:
+  #     - doc-agent-network
 
   # PostgreSQL Database
   postgres:
@@ -83,6 +137,27 @@ services:
       - postgres-data:/var/lib/postgresql/data
     networks:
       - doc-agent-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d docagent"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: pgadmin_ui
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@admin.com
+      - PGADMIN_DEFAULT_PASSWORD=password123
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    ports:
+      - "5050:80"
+    networks:
+      - doc-agent-network
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+    depends_on:
+      postgres:
+        condition: service_healthy
 
 networks:
   doc-agent-network:
@@ -90,3 +165,5 @@ networks:
 
 volumes:
   postgres-data:
+  redis-data:
+  pgadmin-data:

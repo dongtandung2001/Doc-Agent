@@ -1,0 +1,51 @@
+# Windows/Linux compiled binaries — largest offenders (17-23MB each)
+*.exe
+*.dll
+*.so
+*.dylib
+*.test
+
+# Go build cache and vendor
+.cache/
+vendor/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docs
+*.md
+docs/
+
+# Logs and generated output
+*.log
+logs/
+generated_docs/
+
+# Generated proto stubs (rebuilt during Docker build)
+generated/
+
+# Test files
+*_test.go
+scripts/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment files (never send secrets into build context)
+.env
+.env.local
+.env.*.local
+
+# Temporary files
+tmp/
+temp/
