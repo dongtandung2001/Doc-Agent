@@ -42,6 +42,11 @@ class AIServiceStub(object):
                 request_serializer=ai__service__pb2.ChatRequest.SerializeToString,
                 response_deserializer=ai__service__pb2.ChatResponse.FromString,
                 _registered_method=True)
+        self.CreateRAG = channel.unary_unary(
+                '/ai_service.AIService/CreateRAG',
+                request_serializer=ai__service__pb2.CreateRAGRequest.SerializeToString,
+                response_deserializer=ai__service__pb2.CreateRAGResponse.FromString,
+                _registered_method=True)
         self.HealthCheck = channel.unary_unary(
                 '/ai_service.AIService/HealthCheck',
                 request_serializer=ai__service__pb2.Empty.SerializeToString,
@@ -53,6 +58,12 @@ class AIServiceServicer(object):
     """Missing associated documentation comment in .proto file."""
 
     def Chat(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def CreateRAG(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -71,6 +82,11 @@ def add_AIServiceServicer_to_server(servicer, server):
                     servicer.Chat,
                     request_deserializer=ai__service__pb2.ChatRequest.FromString,
                     response_serializer=ai__service__pb2.ChatResponse.SerializeToString,
+            ),
+            'CreateRAG': grpc.unary_unary_rpc_method_handler(
+                    servicer.CreateRAG,
+                    request_deserializer=ai__service__pb2.CreateRAGRequest.FromString,
+                    response_serializer=ai__service__pb2.CreateRAGResponse.SerializeToString,
             ),
             'HealthCheck': grpc.unary_unary_rpc_method_handler(
                     servicer.HealthCheck,
@@ -105,6 +121,33 @@ class AIService(object):
             '/ai_service.AIService/Chat',
             ai__service__pb2.ChatRequest.SerializeToString,
             ai__service__pb2.ChatResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def CreateRAG(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/ai_service.AIService/CreateRAG',
+            ai__service__pb2.CreateRAGRequest.SerializeToString,
+            ai__service__pb2.CreateRAGResponse.FromString,
             options,
             channel_credentials,
             insecure,

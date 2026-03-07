@@ -20,7 +20,7 @@ install:
 
 proto:
 	mkdir -p generated
-	python -m grpc_tools.protoc -I. --python_out=./generated --grpc_python_out=./generated ai_service.proto
+	python -m grpc_tools.protoc -I./protos --python_out=./generated --grpc_python_out=./generated ./protos/ai_service.proto
 	@echo "✓ gRPC code generated in ./generated/"
 
 run:

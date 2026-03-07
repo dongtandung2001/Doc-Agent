@@ -3,6 +3,7 @@
 import grpc
 import sys
 import os
+import pytest
 from dotenv import load_dotenv
 
 # Import generated protobuf files
@@ -18,6 +19,18 @@ load_dotenv()
 
 # Default server address
 DEFAULT_SERVER = os.getenv("GRPC_SERVER", "localhost:50051")
+
+
+@pytest.fixture
+def project_id():
+    """Default project ID for integration tests."""
+    return "test_project_123"
+
+
+@pytest.fixture
+def server_address():
+    """Default gRPC server address for integration tests."""
+    return DEFAULT_SERVER
 
 
 def test_health_check(server_address: str = DEFAULT_SERVER):
@@ -39,7 +52,7 @@ def test_health_check(server_address: str = DEFAULT_SERVER):
         return False
 
 
-def test_chat(project_id: str, user_message: str, server_address: str = DEFAULT_SERVER):
+def test_chat(project_id: str, server_address: str, user_message: str = "Hello! Can you help me understand this project?"):
     """Test the chat endpoint."""
     print(f"\nTesting Chat Endpoint...")
     print(f"Project ID: {project_id}")
@@ -68,7 +81,7 @@ def test_chat(project_id: str, user_message: str, server_address: str = DEFAULT_
         return None
 
 
-def test_rag_query(project_id: str, server_address: str = DEFAULT_SERVER):
+def test_rag_query(project_id: str, server_address: str):
     """Test a code-related query that should trigger RAG."""
     print("\nTesting RAG (Code-related query)...")
 
@@ -100,7 +113,7 @@ def test_rag_query(project_id: str, server_address: str = DEFAULT_SERVER):
         return None
 
 
-def test_doc_generation(project_id: str, server_address: str = DEFAULT_SERVER):
+def test_doc_generation(project_id: str, server_address: str):
     """Test document generation that should trigger auto-embedding."""
     print("\nTesting Doc Generation (Auto-embedding)...")
 

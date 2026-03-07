@@ -190,6 +190,32 @@ class AIServiceServicer(ai_service_pb2_grpc.AIServiceServicer):
                 content=""
             )
 
+    def CreateRAG(self, request: ai_service_pb2.CreateRAGRequest, context) -> ai_service_pb2.CreateRAGResponse:
+        """Create or ensure RAG index exists for the given project. Idempotent."""
+        logger.info(f"=== CreateRAG RPC called === project_id={request.project_id}")
+        try:
+            if not request.project_id:
+                context.set_code(grpc.StatusCode.INVALID_ARGUMENT)
+                context.set_details("project_id is required")
+                return ai_service_pb2.CreateRAGResponse(success=False, message="project_id is required")
+
+            success = self.orchestrator.vector_store.ensure_rag_index(request.project_id)
+            if success:
+                logger.info(f"RAG index ready for project: {request.project_id}")
+                return ai_service_pb2.CreateRAGResponse(
+                    success=True,
+                    message=f"RAG index created or already exists for project {request.project_id}"
+                )
+            return ai_service_pb2.CreateRAGResponse(
+                success=False,
+                message=f"Failed to create RAG index for project {request.project_id}"
+            )
+        except Exception as e:
+            logger.error(f"Error in CreateRAG RPC: {str(e)}")
+            context.set_code(grpc.StatusCode.INTERNAL)
+            context.set_details(str(e))
+            return ai_service_pb2.CreateRAGResponse(success=False, message=str(e))
+
     def HealthCheck(self, request: ai_service_pb2.Empty, context) -> ai_service_pb2.HealthCheckResponse:
         """Health check endpoint."""
         try:

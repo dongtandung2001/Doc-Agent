@@ -4,6 +4,7 @@ package ai_service;
 
 service AIService {
   rpc Chat(ChatRequest) returns (ChatResponse);
+  rpc CreateRAG(CreateRAGRequest) returns (CreateRAGResponse);
   rpc HealthCheck(Empty) returns (HealthCheckResponse);
 }
 
@@ -70,6 +71,15 @@ message ChatResponse {
 }
 
 message Empty {}
+
+message CreateRAGRequest {
+  string project_id = 1;
+}
+
+message CreateRAGResponse {
+  bool success = 1;
+  string message = 2;
+}
 
 message HealthCheckResponse {
   bool isAlive = 1;

@@ -35,6 +35,15 @@ class VectorStoreManager:
             logger.info(f"Created vector store for project: {project_id}")
         return self._stores[project_id]
 
+    def ensure_rag_index(self, project_id: str) -> bool:
+        """Ensure RAG index (vector store) exists for the project. Idempotent."""
+        try:
+            self._get_store(project_id)
+            return True
+        except Exception as e:
+            logger.error(f"Error ensuring RAG index for project {project_id}: {str(e)}")
+            return False
+
     def store_embedding(
             self,
             project_id: str,
