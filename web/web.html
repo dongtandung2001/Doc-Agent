@@ -245,7 +245,7 @@
         link.innerHTML = '<span class="material-symbols-outlined text-[18px] ' + (isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600') + '">' + iconForTitle(title) + '</span> ' + escapeHtml(title);
         link.addEventListener('click', function (e) {
             e.preventDefault();
-            if (url) selectAndLoadDocument(title);
+            if (url) selectAndLoadDocument(url);
         });
         div.appendChild(link);
         if (section.children && section.children.length) {
@@ -313,7 +313,7 @@
     }
 
     function loadSections() {
-        connectCall('GetDocumentSections', { projectId: "1" })
+        connectCall('GetDocumentSections', { projectId: projectId })
             .then(function (data) {
                 tocLoading.style.display = 'none';
                 sections = data.sections || [];
@@ -483,9 +483,8 @@
             return;
         }
         docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
-        connectCall('GetDocument', { projectId: "1", documentId: documentId })
+        connectCall('GetDocument', { projectId: projectId, documentId: documentId })
             .then(function (data) {
-                console.log("error getting document", documentId, data);
                 var errMsg = data.errorMsg || data.error_msg;
                 if (errMsg) {
                     docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">' + escapeHtml(errMsg) + '</div>';
