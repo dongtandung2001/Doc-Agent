@@ -51,7 +51,9 @@ class ConversationOrchestrator:
     ) -> str:
         """Build RAG-aware system prompt."""
         if not retrieved_docs:
-            return "You are a helpful AI assistant for answering questions about code and documentation."
+            return """You are a helpful AI assistant for this project's documentation.
+No project documentation has been indexed yet, so answer from general knowledge.
+You can still help with coding concepts, APIs, and general questions. If the user asks about project-specific docs, suggest they add or index documentation for this project."""
 
         # Format retrieved documentation
         context = "\n\n".join([

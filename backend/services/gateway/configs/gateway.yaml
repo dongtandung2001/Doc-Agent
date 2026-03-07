@@ -12,6 +12,9 @@ backends:
   ai:
     host: "localhost"
     port: 50051
+    # Use base_url to call the Python AI service via its HTTP wrapper (RAG/Chat).
+    # Run: cd backend/services/ai-service && python main.py && python scripts/serve_web_test.py
+    base_url: "http://localhost:8888"
   local_agent:
     host: "localhost"
     port: 50051

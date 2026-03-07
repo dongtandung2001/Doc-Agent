@@ -25,8 +25,9 @@ type BackendConfig struct {
 }
 
 type ServiceEndpoint struct {
-	Host string `mapstructure:"host"`
-	Port int    `mapstructure:"port"`
+	Host    string `mapstructure:"host"`
+	Port    int    `mapstructure:"port"`
+	BaseURL string `mapstructure:"base_url"` // If set (e.g. for AI), use HTTP to this URL instead of gRPC host:port
 }
 
 func Load() (*Config, error) {

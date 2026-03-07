@@ -2,25 +2,33 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 
 	"connectrpc.com/connect"
 	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 )
 
+// AIClient is the interface used by the gateway to call the AI (RAG/Chat) service.
+// It can be implemented by the gRPC client or by HTTPAIClient (Python proxy).
+type AIClient interface {
+	Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error)
+	HealthCheck(ctx context.Context, req *apiv1.HealthCheckRequest) (*apiv1.HealthCheckResponse, error)
+}
+
 // GatewayHandler implements GatewayService and proxies requests to backend services
 type GatewayHandler struct {
 	localAgentClient apiv1.LocalAgentServiceClient
 	codebaseClient   apiv1.CodebaseAnalysisServiceClient
 	databaseClient   apiv1.DatabaseServiceClient
-	aiClient         apiv1.AIServiceClient
+	aiClient         AIClient
 }
 
 func NewGatewayHandler(
 	localAgentClient apiv1.LocalAgentServiceClient,
 	codebaseClient apiv1.CodebaseAnalysisServiceClient,
 	databaseClient apiv1.DatabaseServiceClient,
-	aiClient apiv1.AIServiceClient,
+	aiClient AIClient,
 ) *GatewayHandler {
 	return &GatewayHandler{
 		localAgentClient: localAgentClient,
@@ -94,6 +102,9 @@ func (h *GatewayHandler) Chat(
 	ctx context.Context,
 	req *connect.Request[apiv1.ChatRequest],
 ) (*connect.Response[apiv1.ChatResponse], error) {
+	if h.aiClient == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("AI service not configured: set backends.ai.base_url in gateway config"))
+	}
 	result, err := h.aiClient.Chat(ctx, req.Msg)
 	if err != nil {
 		return nil, err

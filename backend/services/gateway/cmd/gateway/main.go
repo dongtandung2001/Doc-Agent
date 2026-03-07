@@ -62,13 +62,21 @@ func main() {
 	// }
 	// defer aiClient.Close()
 
+	var aiClient handlers.AIClient
+	if cfg.Backends.AIService.BaseURL != "" {
+		aiClient = handlers.NewHTTPAIClient(cfg.Backends.AIService.BaseURL)
+		log.Printf("Using AI service via HTTP at %s", cfg.Backends.AIService.BaseURL)
+	} else {
+		aiClient = nil
+	}
+
 	// Initialize gateway handler (proxies to all backend services)
 	// Pass the underlying gRPC clients using GetClient()
 	gatewayHandler := handlers.NewGatewayHandler(
 		localAgentClient.GetClient(),
 		codebaseClient.GetClient(),
 		databaseClient.GetClient(),
-		nil,
+		aiClient,
 	)
 
 	// Create HTTP server with gateway handler

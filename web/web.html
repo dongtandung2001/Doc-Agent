@@ -118,7 +118,7 @@
                     <span class="font-medium text-slate-900">Documentation</span>
                 </nav>
                 <div id="doc-content">
-                    <div class="py-12 text-center text-slate-500">Select a section from the table of contents.</div>
+                    <div class="py-12 text-center text-slate-500">Loading…</div>
                 </div>
                 <div class="h-24"></div>
             </div>
@@ -318,7 +318,8 @@
                 tocLoading.style.display = 'none';
                 sections = data.sections || [];
                 if (sections.length === 0) {
-                    tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">No sections for this project.</div>';
+                    tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">No sections for this project. Use the <strong>AI Assistant</strong> on the right to chat.</div>';
+                    docContent.innerHTML = '<div class="prose prose-slate max-w-none"><p class="text-slate-600">No documentation sections yet. Use the <strong>AI Assistant</strong> on the right to chat.</p></div>';
                     return;
                 }
                 var container = document.createElement('div');
@@ -333,8 +334,10 @@
                 if (first) selectAndLoadDocument(first);
             })
             .catch(function (err) {
-                tocLoading.textContent = 'Failed to load TOC: ' + (err.message || String(err));
-                tocLoading.classList.add('text-red-600');
+                tocLoading.textContent = 'No documentation server or no sections for this project.';
+                tocLoading.classList.add('text-slate-500');
+                tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">Use the <strong>AI Assistant</strong> on the right to chat.</div>';
+                docContent.innerHTML = '<div class="prose prose-slate max-w-none"><h2 class="text-slate-800">Welcome to TechDocs Pro</h2><p class="text-slate-600">No documentation is loaded for this project. You can still use the <strong>AI Assistant</strong> in the panel on the right to ask questions and chat.</p><p class="text-slate-500 text-sm mt-4">To see doc content here, run the database service and add documents, or open a local file with <code class="bg-slate-100 px-1 rounded">?file=yourfile.md</code> in the URL.</p></div>';
             });
     }
 

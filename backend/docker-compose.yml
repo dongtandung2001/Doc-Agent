@@ -13,6 +13,7 @@ services:
       - BACKENDS_CODEBASE_PORT=9001
       - BACKENDS_DATABASE_HOST=database
       - BACKENDS_DATABASE_PORT=9002
+      - BACKENDS_AI_BASE_URL=${BACKENDS_AI_BASE_URL:-http://host.docker.internal:8888}
       - BACKENDS_LOCAL_AGENT_HOST=${LOCAL_AGENT_HOST:-host.docker.internal}
       - BACKENDS_LOCAL_AGENT_PORT=${LOCAL_AGENT_PORT:-50051}
     depends_on:
