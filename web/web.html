@@ -9,7 +9,7 @@
     <link
         href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
         rel="stylesheet" />
-    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries,typography"></script>
     <script id="tailwind-config">
         tailwind.config = {
             darkMode: "class",
@@ -60,6 +60,9 @@
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 
 <body class="bg-background-light text-slate-900 font-display antialiased overflow-hidden h-screen flex flex-col">
@@ -183,11 +186,20 @@
     <script>
 (function () {
     // --- Config: point at your gateway (e.g. http://localhost:8080 when running backend)
+    if (typeof marked !== 'undefined') {
+        marked.setOptions({ headerIds: true, mangle: false, gfm: true, breaks: true });
+    }
     var API_BASE = window.DOC_AGENT_API_BASE || 'http://localhost:8080';
     var params = new URLSearchParams(window.location.search);
     var projectId = params.get('project_id') || 'default';
+    var fileParam = params.get('file'); // e.g. ?file=test.md to load and render a local .md file
 
     var gatewayPath = '/api.proto.v1.GatewayService';
+
+    // Initialize Mermaid (for ```mermaid``` code blocks in markdown)
+    if (window.mermaid) {
+        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+    }
 
     function connectCall(method, body) {
         var url = API_BASE + gatewayPath + '/' + method;
@@ -233,7 +245,7 @@
         link.innerHTML = '<span class="material-symbols-outlined text-[18px] ' + (isActive ? 'text-primary' : 'text-slate-400 group-hover:text-slate-600') + '">' + iconForTitle(title) + '</span> ' + escapeHtml(title);
         link.addEventListener('click', function (e) {
             e.preventDefault();
-            if (url) selectAndLoadDocument(url);
+            if (url) selectAndLoadDocument(title);
         });
         div.appendChild(link);
         if (section.children && section.children.length) {
@@ -255,6 +267,38 @@
         return div.innerHTML;
     }
 
+    // Transform ```mermaid``` code blocks into rendered diagrams
+    function renderMermaid(root) {
+        if (!window.mermaid) return;
+
+        var codeBlocks = root.querySelectorAll('pre code.language-mermaid, code.language-mermaid');
+        if (!codeBlocks.length) return;
+
+        codeBlocks.forEach(function (codeEl) {
+            var parent = codeEl.parentElement;
+            var text = codeEl.textContent;
+            var container = document.createElement('div');
+            container.className = 'mermaid';
+            container.textContent = text;
+
+            if (parent && parent.tagName && parent.tagName.toLowerCase() === 'pre') {
+                parent.replaceWith(container);
+            } else {
+                codeEl.replaceWith(container);
+            }
+        });
+
+        try {
+            if (typeof mermaid.run === 'function') {
+                mermaid.run({ nodes: root.querySelectorAll('.mermaid') });
+            } else if (typeof mermaid.init === 'function') {
+                mermaid.init(undefined, root.querySelectorAll('.mermaid'));
+            }
+        } catch (e) {
+            console.error('Mermaid render error', e);
+        }
+    }
+
     function selectAndLoadDocument(documentId) {
         selectedDocumentId = documentId;
         // Update TOC active state
@@ -269,7 +313,7 @@
     }
 
     function loadSections() {
-        connectCall('GetDocumentSections', { projectId: projectId })
+        connectCall('GetDocumentSections', { projectId: "1" })
             .then(function (data) {
                 tocLoading.style.display = 'none';
                 sections = data.sections || [];
@@ -306,14 +350,142 @@
         return null;
     }
 
+    // --- Local file mode: fetch a .md file and render it (no backend required)
+    function slugFromTitle(title) {
+        return (title || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
+    function buildTocFromMarkdown(md) {
+        var sections = [];
+        var lines = md.split('\n');
+        var stack = [{ children: sections, depth: 0, path: [] }];
+        var usedIds = {};
+        for (var i = 0; i < lines.length; i++) {
+            var line = lines[i];
+            var m = line.match(/^(#{1,6})\s+(.+)$/);
+            if (!m) continue;
+            var depth = m[1].length;
+            var title = m[2].trim();
+            var slug = slugFromTitle(title);
+            while (stack.length > 1 && stack[stack.length - 1].depth >= depth) stack.pop();
+            var parentPath = stack[stack.length - 1].path;
+            var segment = slug;
+            var fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            if (usedIds[fullId]) {
+                usedIds[fullId]++;
+                segment = slug + '-' + usedIds[fullId];
+                fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            } else {
+                usedIds[fullId] = 1;
+            }
+            var node = { title: title, url: '#' + fullId, children: [] };
+            stack[stack.length - 1].children.push(node);
+            stack.push({ children: node.children, depth: depth, path: parentPath.concat([segment]) });
+        }
+        return sections;
+    }
+
+    function loadLocalFile(filename) {
+        docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
+        tocLoading.style.display = 'block';
+        tocLoading.textContent = 'Loading…';
+        fetch(filename)
+            .then(function (r) {
+                if (!r.ok) throw new Error('Failed to load ' + filename + ': ' + r.status);
+                return r.text();
+            })
+            .then(function (md) {
+                tocLoading.style.display = 'none';
+                var sections = buildTocFromMarkdown(md);
+                if (sections.length > 0) {
+                    var container = document.createElement('div');
+                    container.className = 'space-y-1';
+                    sections.forEach(function (section) {
+                        container.appendChild(renderTocSection(section, 0));
+                    });
+                    tocNav.innerHTML = '';
+                    tocNav.appendChild(container);
+                } else {
+                    tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-slate-500">No headings in document.</div>';
+                }
+                var html = typeof marked !== 'undefined' ? marked.parse(md) : escapeHtml(md).replace(/\n/g, '<br>');
+                docContent.innerHTML = '<div class="prose prose-slate max-w-none">' + html + '</div>';
+                enhanceRenderedContent(docContent);
+                breadcrumb.textContent = '';
+                var span = document.createElement('span');
+                span.className = 'font-medium text-slate-900';
+                span.textContent = filename;
+                breadcrumb.appendChild(span);
+            })
+            .catch(function (err) {
+                tocLoading.style.display = 'none';
+                tocNav.innerHTML = '<div class="px-3 py-4 text-sm text-red-600">Failed to load TOC.</div>';
+                docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">Failed to load file: ' + escapeHtml(err.message || String(err)) + '</div>';
+            });
+    }
+
     // --- Main content (GetDocument)
     var docContent = document.getElementById('doc-content');
     var breadcrumb = document.getElementById('breadcrumb');
 
+    function enhanceRenderedContent(container) {
+        if (!container) return;
+        var prose = container.querySelector('.prose');
+        if (!prose) return;
+        // Apply heading ids that match TOC links (hierarchical path + slug for uniqueness)
+        var usedIds = {};
+        var pathStack = [];
+        prose.querySelectorAll('h1, h2, h3, h4, h5, h6').forEach(function (heading) {
+            var depth = parseInt(heading.tagName.charAt(1), 10);
+            var text = heading.textContent.trim();
+            if (!text) return;
+            while (pathStack.length > 0 && pathStack[pathStack.length - 1].depth >= depth) pathStack.pop();
+            var parentPath = pathStack.length ? pathStack[pathStack.length - 1].path : [];
+            var slug = slugFromTitle(text);
+            var segment = slug;
+            var fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            if (usedIds[fullId]) {
+                usedIds[fullId]++;
+                segment = slug + '-' + usedIds[fullId];
+                fullId = parentPath.length ? parentPath.join('-') + '-' + segment : segment;
+            } else {
+                usedIds[fullId] = 1;
+            }
+            heading.id = fullId;
+            pathStack.push({ depth: depth, path: parentPath.concat([segment]) });
+        });
+        if (typeof hljs !== 'undefined') {
+            prose.querySelectorAll('pre code:not(.language-mermaid)').forEach(function (block) {
+                hljs.highlightElement(block);
+            });
+        }
+        var mermaidBlocks = prose.querySelectorAll('pre code.language-mermaid');
+        if (typeof mermaid !== 'undefined' && mermaidBlocks.length > 0) {
+            if (!window._mermaidInited) {
+                mermaid.initialize({ startOnLoad: false });
+                window._mermaidInited = true;
+            }
+            mermaidBlocks.forEach(function (code) {
+                var pre = code.closest('pre');
+                var div = document.createElement('div');
+                div.className = 'mermaid';
+                div.textContent = code.textContent;
+                pre.parentNode.replaceChild(div, pre);
+            });
+            mermaid.run({ nodes: prose.querySelectorAll('.mermaid') }).catch(function (e) { console.warn('Mermaid:', e); });
+        }
+    }
+
     function loadDocument(documentId) {
+        if (fileParam && documentId && documentId.charAt(0) === '#') {
+            var el = document.getElementById(documentId.slice(1));
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
         docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
-        connectCall('GetDocument', { projectId: projectId, documentId: documentId })
+        connectCall('GetDocument', { projectId: "1", documentId: documentId })
             .then(function (data) {
+                console.log("error getting document", documentId, data);
                 var errMsg = data.errorMsg || data.error_msg;
                 if (errMsg) {
                     docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">' + escapeHtml(errMsg) + '</div>';
@@ -322,9 +494,13 @@
                 var doc = data.doc || '';
                 if (typeof marked !== 'undefined') {
                     docContent.innerHTML = '<div class="prose prose-slate max-w-none">' + marked.parse(doc) + '</div>';
+                    enhanceRenderedContent(docContent);
                 } else {
                     docContent.innerHTML = '<pre class="text-sm text-slate-700 whitespace-pre-wrap font-sans">' + escapeHtml(doc) + '</pre>';
                 }
+
+                // After markdown is rendered, upgrade any ```mermaid``` blocks to diagrams
+                renderMermaid(docContent);
                 breadcrumb.textContent = '';
                 var span = document.createElement('span');
                 span.className = 'font-medium text-slate-900';
@@ -414,7 +590,11 @@
     });
 
     // --- Init
-    loadSections();
+    if (fileParam) {
+        loadLocalFile(fileParam);
+    } else {
+        loadSections();
+    }
 })();
     </script>
 </body>

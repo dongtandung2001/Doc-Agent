@@ -126,7 +126,7 @@ func (r *PostgresFileItemRepository) GetFileItemByID(ctx context.Context, projec
 	query := `
 		SELECT id, project_id, content, description, document_section_id, document_id, extra, is_embedded, title
 		FROM document_file_items
-		WHERE project_id = $1 AND id = $2
+		WHERE project_id = $1 AND document_id = $2
 	`
 	var item DocumentFileItem
 	err := r.pool.QueryRow(ctx, query, projectID, documentID).Scan(
