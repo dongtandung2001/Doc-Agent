@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61i_service.proto\x12\nai_service\",\n\x0b\x43hatMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"L\n\x0b\x43hatRequest\x12)\n\x08messages\x18\x01 \x03(\x0b\x32\x17.ai_service.ChatMessage\x12\x12\n\nproject_id\x18\x02 \x01(\t\"\xaf\x01\n\x0e\x43hatCompletion\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06object\x18\x02 \x01(\t\x12\x0f\n\x07\x63reated\x18\x03 \x01(\x03\x12\r\n\x05model\x18\x04 \x01(\t\x12#\n\x07\x63hoices\x18\x05 \x03(\x0b\x32\x12.ai_service.Choice\x12 \n\x05usage\x18\x06 \x01(\x0b\x32\x11.ai_service.Usage\x12\x1a\n\x12system_fingerprint\x18\x07 \x01(\t\"b\n\x06\x43hoice\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x32\n\x07message\x18\x02 \x01(\x0b\x32!.ai_service.ChatCompletionMessage\x12\x15\n\rfinish_reason\x18\x03 \x01(\t\"q\n\x15\x43hatCompletionMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\x12(\n\ntool_calls\x18\x03 \x03(\x0b\x32\x14.ai_service.ToolCall\x12\x0f\n\x07refusal\x18\x04 \x01(\t\"P\n\x08ToolCall\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04type\x18\x02 \x01(\t\x12*\n\x08\x66unction\x18\x03 \x01(\x0b\x32\x18.ai_service.FunctionCall\"/\n\x0c\x46unctionCall\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\targuments\x18\x02 \x01(\t\"O\n\x05Usage\x12\x15\n\rprompt_tokens\x18\x01 \x01(\x05\x12\x19\n\x11\x63ompletion_tokens\x18\x02 \x01(\x05\x12\x14\n\x0ctotal_tokens\x18\x03 \x01(\x05\"b\n\x0c\x43hatResponse\x12(\n\x07request\x18\x01 \x01(\x0b\x32\x17.ai_service.ChatRequest\x12\x17\n\x0f\x63ompletion_json\x18\x02 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x03 \x01(\t\"\x07\n\x05\x45mpty\"&\n\x13HealthCheckResponse\x12\x0f\n\x07isAlive\x18\x01 \x01(\x08\x32\x89\x01\n\tAIService\x12\x39\n\x04\x43hat\x12\x17.ai_service.ChatRequest\x1a\x18.ai_service.ChatResponse\x12\x41\n\x0bHealthCheck\x12\x11.ai_service.Empty\x1a\x1f.ai_service.HealthCheckResponseb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10\x61i_service.proto\x12\nai_service\",\n\x0b\x43hatMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\"L\n\x0b\x43hatRequest\x12)\n\x08messages\x18\x01 \x03(\x0b\x32\x17.ai_service.ChatMessage\x12\x12\n\nproject_id\x18\x02 \x01(\t\"\xaf\x01\n\x0e\x43hatCompletion\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0e\n\x06object\x18\x02 \x01(\t\x12\x0f\n\x07\x63reated\x18\x03 \x01(\x03\x12\r\n\x05model\x18\x04 \x01(\t\x12#\n\x07\x63hoices\x18\x05 \x03(\x0b\x32\x12.ai_service.Choice\x12 \n\x05usage\x18\x06 \x01(\x0b\x32\x11.ai_service.Usage\x12\x1a\n\x12system_fingerprint\x18\x07 \x01(\t\"b\n\x06\x43hoice\x12\r\n\x05index\x18\x01 \x01(\x05\x12\x32\n\x07message\x18\x02 \x01(\x0b\x32!.ai_service.ChatCompletionMessage\x12\x15\n\rfinish_reason\x18\x03 \x01(\t\"q\n\x15\x43hatCompletionMessage\x12\x0c\n\x04role\x18\x01 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x02 \x01(\t\x12(\n\ntool_calls\x18\x03 \x03(\x0b\x32\x14.ai_service.ToolCall\x12\x0f\n\x07refusal\x18\x04 \x01(\t\"P\n\x08ToolCall\x12\n\n\x02id\x18\x01 \x01(\t\x12\x0c\n\x04type\x18\x02 \x01(\t\x12*\n\x08\x66unction\x18\x03 \x01(\x0b\x32\x18.ai_service.FunctionCall\"/\n\x0c\x46unctionCall\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x11\n\targuments\x18\x02 \x01(\t\"O\n\x05Usage\x12\x15\n\rprompt_tokens\x18\x01 \x01(\x05\x12\x19\n\x11\x63ompletion_tokens\x18\x02 \x01(\x05\x12\x14\n\x0ctotal_tokens\x18\x03 \x01(\x05\"b\n\x0c\x43hatResponse\x12(\n\x07request\x18\x01 \x01(\x0b\x32\x17.ai_service.ChatRequest\x12\x17\n\x0f\x63ompletion_json\x18\x02 \x01(\t\x12\x0f\n\x07\x63ontent\x18\x03 \x01(\t\"\x07\n\x05\x45mpty\"&\n\x10\x43reateRAGRequest\x12\x12\n\nproject_id\x18\x01 \x01(\t\"5\n\x11\x43reateRAGResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x0f\n\x07message\x18\x02 \x01(\t\"&\n\x13HealthCheckResponse\x12\x0f\n\x07isAlive\x18\x01 \x01(\x08\x32\xd3\x01\n\tAIService\x12\x39\n\x04\x43hat\x12\x17.ai_service.ChatRequest\x1a\x18.ai_service.ChatResponse\x12H\n\tCreateRAG\x12\x1c.ai_service.CreateRAGRequest\x1a\x1d.ai_service.CreateRAGResponse\x12\x41\n\x0bHealthCheck\x12\x11.ai_service.Empty\x1a\x1f.ai_service.HealthCheckResponseb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -51,8 +51,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_CHATRESPONSE']._serialized_end=859
   _globals['_EMPTY']._serialized_start=861
   _globals['_EMPTY']._serialized_end=868
-  _globals['_HEALTHCHECKRESPONSE']._serialized_start=870
-  _globals['_HEALTHCHECKRESPONSE']._serialized_end=908
-  _globals['_AISERVICE']._serialized_start=911
-  _globals['_AISERVICE']._serialized_end=1048
+  _globals['_CREATERAGREQUEST']._serialized_start=870
+  _globals['_CREATERAGREQUEST']._serialized_end=908
+  _globals['_CREATERAGRESPONSE']._serialized_start=910
+  _globals['_CREATERAGRESPONSE']._serialized_end=963
+  _globals['_HEALTHCHECKRESPONSE']._serialized_start=965
+  _globals['_HEALTHCHECKRESPONSE']._serialized_end=1003
+  _globals['_AISERVICE']._serialized_start=1006
+  _globals['_AISERVICE']._serialized_end=1217
 # @@protoc_insertion_point(module_scope)
