@@ -45,7 +45,7 @@ message StoreSectionRequest {
   string id = 1;          // Unique section ID
   string project_id = 2;  // Project identifier
   string title = 3;       // Section title (display name)
-  string description = 4; // Section description/summary
+  string prompt = 4; // Section description/summary
   string url = 5;         // URL slug (auto-generated from title if empty)
   string parent_id = 6;   // Parent section ID (empty for root sections)
   int32 order = 7;        // Display order among siblings

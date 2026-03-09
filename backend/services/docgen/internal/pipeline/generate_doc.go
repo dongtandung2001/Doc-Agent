@@ -72,8 +72,8 @@ func GenerateDocumentation(chatContext chatContext.ChatContext, aiClient *client
 	resp, err := dbClient.StoreDocument(context.Background(), &apiv1.StoreDocumentRequest{
 		Id:          fileID,
 		ProjectId:   "1", // TODO: replace with real project ID
-		DocumentId:  name.(string),
-		Title:       title.(string),
+		DocumentId:  title.(string),
+		Title:       name.(string),
 		Description: prompt.(string),
 		Content:     generated_doc.Content,
 	})

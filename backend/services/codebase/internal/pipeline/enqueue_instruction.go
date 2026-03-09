@@ -7,9 +7,9 @@ import (
 	"log"
 	"strings"
 
+	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 	"github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/clients"
 	chatContext "github.com/dongtandung2001/Doc-Agent/backend/shared/pkg/context"
-	apiv1 "github.com/dongtandung2001/Doc-Agent/backend/shared/gen/api/proto/v1"
 
 	"github.com/hibiken/asynq"
 )
@@ -120,17 +120,14 @@ func EnqueueInstruction(chatCtx chatContext.ChatContext, instructionJson string,
 	for i, item := range flatItems {
 		// Store section in database before enqueuing
 		sectionReq := &apiv1.StoreSectionRequest{
-			Id:          item.Name,
-			ProjectId:   projectID,
-			Title:       item.Title,
-			Description: item.Prompt,
-			Order:       int32(i),
+			Id:        item.Title,
+			ProjectId: projectID,
+			Title:     item.Name,
+			Prompt:    item.Prompt,
+			Order:     int32(i),
+			ParentId:  item.Parent,
 		}
-		if item.Parent != "" {
-			if parentName, ok := titleToName[item.Parent]; ok {
-				sectionReq.ParentId = parentName
-			}
-		}
+
 		if resp, err := dbClient.StoreSection(context.Background(), sectionReq); err != nil {
 			log.Printf("Error storing section %s: %v", item.Title, err)
 		} else if !resp.Success {

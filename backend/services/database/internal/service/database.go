@@ -147,13 +147,13 @@ func (s *DatabaseService) StoreSection(
 	}
 
 	section := &repository.DocumentSection{
-		ID:          req.Id,
-		ProjectID:   req.ProjectId,
-		Name:        req.Title,
-		Description: req.Description,
-		URL:         url,
-		Order:       int(req.Order),
-		ParentID:    parentID,
+		ID:        req.Id,
+		ProjectID: req.ProjectId,
+		Name:      req.Title,
+		Prompt:    req.Prompt,
+		URL:       url,
+		Order:     int(req.Order),
+		ParentID:  parentID,
 	}
 	if err := s.sectionRepo.UpsertSection(ctx, section); err != nil {
 		return &apiv1.StoreSectionResponse{Success: false}, err
