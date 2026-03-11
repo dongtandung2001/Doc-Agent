@@ -11,24 +11,20 @@ import (
 
 // AIClient is the interface used by the gateway to call the AI (RAG/Chat) service.
 // It can be implemented by the gRPC client or by HTTPAIClient (Python proxy).
-type AIClient interface {
-	Chat(ctx context.Context, req *apiv1.ChatRequest) (*apiv1.ChatResponse, error)
-	HealthCheck(ctx context.Context, req *apiv1.HealthCheckRequest) (*apiv1.HealthCheckResponse, error)
-}
 
 // GatewayHandler implements GatewayService and proxies requests to backend services
 type GatewayHandler struct {
 	localAgentClient apiv1.LocalAgentServiceClient
 	codebaseClient   apiv1.CodebaseAnalysisServiceClient
 	databaseClient   apiv1.DatabaseServiceClient
-	aiClient         AIClient
+	aiClient         apiv1.AIServiceClient
 }
 
 func NewGatewayHandler(
 	localAgentClient apiv1.LocalAgentServiceClient,
 	codebaseClient apiv1.CodebaseAnalysisServiceClient,
 	databaseClient apiv1.DatabaseServiceClient,
-	aiClient AIClient,
+	aiClient apiv1.AIServiceClient,
 ) *GatewayHandler {
 	return &GatewayHandler{
 		localAgentClient: localAgentClient,

@@ -180,6 +180,11 @@ func (c *AIClient) GetToolChoice() string {
 	return "auto"
 }
 
+// GetClient returns the underlying gRPC client for direct access
+func (c *AIClient) GetClient() apiv1.AIServiceClient {
+	return c.client
+}
+
 // ExecuteTool executes a tool with the given name and file requests.
 // For fs_read, it routes each file through the global FileCache with singleflight
 // coalescing: concurrent requests for the same path across workers result in a
@@ -272,6 +277,10 @@ func (c *AIClient) Chat(ctx context.Context, req *apiv1.ChatRequest, gatewayClie
 	// Check if agentic mode is enabled
 	isAgentic, ok := ctx.Value(AgenticMode).(bool)
 	log.Printf("AgenticMode: %v", isAgentic)
+
+	if !c.isHTTP {
+		return c.client.Chat(ctx, req)
+	}
 
 	if !ok || !isAgentic {
 		// Non-agentic mode: single request-response
@@ -393,10 +402,10 @@ func (c *AIClient) sendHTTP(ctx context.Context, req *apiv1.ChatRequest) (*Parse
 		Function toolCallFunction `json:"function"`
 	}
 	type msg struct {
-		Role       string      `json:"role"`
-		Content    string      `json:"content"`
-		ToolCallId string      `json:"tool_call_id,omitempty"`
-		ToolCalls  []toolCall  `json:"tool_calls,omitempty"`
+		Role       string     `json:"role"`
+		Content    string     `json:"content"`
+		ToolCallId string     `json:"tool_call_id,omitempty"`
+		ToolCalls  []toolCall `json:"tool_calls,omitempty"`
 	}
 	messages := make([]msg, len(req.Messages))
 	for i, m := range req.Messages {

@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package ai_service;
+package api.proto.v1;
 
 service AIService {
   rpc Chat(ChatRequest) returns (ChatResponse);
@@ -60,14 +60,14 @@ message Usage {
 }
 
 message ChatResponse {
-  // Original request for reference
-  ChatRequest request = 1;
-  
-  // Full OpenAI ChatCompletion response as JSON string (simpler than manual serialization)
+  // Must match Go shared proto: content at field 1
+  string content = 1;
+
+  // Full OpenAI ChatCompletion response as JSON string
   string completion_json = 2;
-  
-  // Convenience field for backward compatibility
-  string content = 3;
+
+  // Original request for reference
+  ChatRequest request = 3;
 }
 
 message Empty {}

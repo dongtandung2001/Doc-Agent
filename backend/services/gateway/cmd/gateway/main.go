@@ -53,22 +53,22 @@ func main() {
 	}
 	defer databaseClient.Close()
 
-	// aiClient, err := clients.NewAIClient(
-	// 	cfg.Backends.AIService.Host,
-	// 	cfg.Backends.AIService.Port,
-	// )
-	// if err != nil {
-	// 	log.Fatalf("Failed to connect to AI service: %v", err)
-	// }
-	// defer aiClient.Close()
-
-	var aiClient handlers.AIClient
-	if cfg.Backends.AIService.BaseURL != "" {
-		aiClient = handlers.NewHTTPAIClient(cfg.Backends.AIService.BaseURL)
-		log.Printf("Using AI service via HTTP at %s", cfg.Backends.AIService.BaseURL)
-	} else {
-		aiClient = nil
+	aiClient, err := clients.NewAIClient(
+		cfg.Backends.AIService.Host,
+		cfg.Backends.AIService.Port,
+	)
+	if err != nil {
+		log.Fatalf("Failed to connect to AI service: %v", err)
 	}
+	defer aiClient.Close()
+
+	// var aiClient handlers.AIClient
+	// if cfg.Backends.AIService.BaseURL != "" {
+	// 	aiClient = handlers.NewHTTPAIClient(cfg.Backends.AIService.BaseURL)
+	// 	log.Printf("Using AI service via HTTP at %s", cfg.Backends.AIService.BaseURL)
+	// } else {
+	// 	aiClient = nil
+	// }
 
 	// Initialize gateway handler (proxies to all backend services)
 	// Pass the underlying gRPC clients using GetClient()
@@ -76,7 +76,7 @@ func main() {
 		localAgentClient.GetClient(),
 		codebaseClient.GetClient(),
 		databaseClient.GetClient(),
-		aiClient,
+		aiClient.GetClient(),
 	)
 
 	// Create HTTP server with gateway handler

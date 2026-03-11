@@ -20,15 +20,16 @@ type DocumentSection struct {
 
 // DocumentFileItem represents an individual document file
 type DocumentFileItem struct {
-	ID                 string
-	ProjectID          string
-	Content            string
-	Description        string
-	DocumentSectionID  string
-	DocumentID         string
-	Extra              string
-	IsEmbedded         bool
-	Title              string
+	ID                string
+	ProjectID         string
+	Content           string
+	Description       string
+	DocumentSectionID string
+	DocumentID        string
+	Extra             string
+	IsEmbedded        bool
+	Title             string
+	EmbedStatus       string // "pending" | "processing" | "completed" | "failed"
 }
 
 // SectionRepository defines operations for document sections

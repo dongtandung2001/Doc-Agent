@@ -34,7 +34,10 @@ WORKDIR /app
 COPY --from=builder /root/.local /home/appuser/.local
 
 # Make sure scripts in .local are in PATH
-ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PATH=/home/appuser/.local/bin:$PATH \
+    PYTHONPATH=/app/generated \
+    VECTOR_DB_PATH=/app/data/chroma_db \
+    LOG_LEVEL=INFO
 
 # Copy application
 COPY --from=builder /build/generated ./generated

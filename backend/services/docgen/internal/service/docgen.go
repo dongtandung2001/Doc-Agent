@@ -26,7 +26,7 @@ func NewDocGenService(
 	srv := asynq.NewServer(
 		redisClient.GetRedisOpt(),
 		asynq.Config{
-			Concurrency: 3, // Process up to 3 tasks concurrently
+			Concurrency: 5, // Process up to 5 tasks concurrently
 			Queues: map[string]int{
 				"default": 1, // Priority level for default queue
 			},

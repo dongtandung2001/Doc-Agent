@@ -13,11 +13,13 @@ services:
       - BACKENDS_CODEBASE_PORT=9001
       - BACKENDS_DATABASE_HOST=database
       - BACKENDS_DATABASE_PORT=9002
-      - BACKENDS_AI_BASE_URL=${BACKENDS_AI_BASE_URL:-http://host.docker.internal:8888}
       - BACKENDS_LOCAL_AGENT_HOST=${LOCAL_AGENT_HOST:-host.docker.internal}
       - BACKENDS_LOCAL_AGENT_PORT=${LOCAL_AGENT_PORT:-50051}
+      - BACKENDS_AI_HOST=ai-service
+      - BACKENDS_AI_PORT=50051
     depends_on:
       - codebase
+      - ai-service
       # - database
     networks:
       - doc-agent-network
@@ -110,20 +112,43 @@ services:
       retries: 5
 
   # AI Service (Python gRPC)
-  # ai-service:
-  #   build:
-  #     context: ./services/ai-service
-  #     dockerfile: Dockerfile
-  #   ports:
-  #     - "50051:50051"
-  #   environment:
-  #     - GRPC_PORT=50051
-  #     - OPENAI_API_KEY=${OPENAI_API_KEY}
-  #     - LLM_MODEL=gpt-4
-  #     - LLM_TEMPERATURE=0.7
-  #     - LLM_MAX_TOKENS=4096
-  #   networks:
-  #     - doc-agent-network
+  ai-service:
+    build:
+      context: ./services/ai-service
+      dockerfile: Dockerfile
+    ports:
+      - "50051:50051"
+    environment:
+      # gRPC
+      - GRPC_PORT=50051
+      # LLM
+      - OPENAI_API_KEY=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
+      - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
+      - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
+      - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-2000}
+      # DeepSeek (OpenAI-compatible, optional)
+      - DEEPSEEK_API_KEY=sk-0a15119dfaf14a39b254d103c3a9f506
+      - DEEPSEEK_MODEL=${DEEPSEEK_MODEL:-deepseek-chat}
+      - DEEPSEEK_BASE_URL=${DEEPSEEK_BASE_URL:-https://api.deepseek.com}
+      # Vector DB (ChromaDB embedded)
+      - VECTOR_DB_PATH=/app/data/chroma_db
+      - EMBEDDING_MODEL=${EMBEDDING_MODEL:-text-embedding-3-small}
+      - TOP_K_RETRIEVAL=${TOP_K_RETRIEVAL:-5}
+      # RAG
+      - RAG_CHUNK_SIZE=${RAG_CHUNK_SIZE:-1000}
+      - RAG_CHUNK_OVERLAP=${RAG_CHUNK_OVERLAP:-200}
+      - RETRIEVAL_SCORE_THRESHOLD=${RETRIEVAL_SCORE_THRESHOLD:-1.2}
+      # PostgreSQL (for embedding pipeline)
+      - DATABASE_POSTGRES_URL=postgres://user:password@postgres:5432/docagent?sslmode=disable
+      # Logging
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ai-chroma-data:/app/data/chroma_db
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - doc-agent-network
 
   # PostgreSQL Database
   postgres:
@@ -168,3 +193,4 @@ volumes:
   postgres-data:
   redis-data:
   pgadmin-data:
+  ai-chroma-data:

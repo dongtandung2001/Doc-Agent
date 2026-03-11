@@ -25,6 +25,23 @@ class Config:
     # RAG Configuration
     RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "1000"))
     RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "200"))
+    RETRIEVAL_SCORE_THRESHOLD = float(os.getenv("RETRIEVAL_SCORE_THRESHOLD", "1.2"))
+
+    # DeepSeek LLM (OpenAI-compatible; used by RAGPipeline for generation)
+    # NOTE: DeepSeek has no embedding API — OPENAI_API_KEY is still required for embeddings.
+    DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+    DEEPSEEK_MODEL = os.getenv("DEEPSEEK_MODEL", "deepseek-chat")
+    DEEPSEEK_BASE_URL = os.getenv("DEEPSEEK_BASE_URL", "https://api.deepseek.com")
+
+    # PostgreSQL (direct connection for the embedding pipeline)
+    # Accepts the same DSN as DATABASE_POSTGRES_URL in docker-compose.
+    POSTGRES_URL = os.getenv(
+        "POSTGRES_URL",
+        os.getenv(
+            "DATABASE_POSTGRES_URL",
+            "postgres://user:password@localhost:5432/docagent?sslmode=disable",
+        ),
+    )
 
     # Logging
     LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")

@@ -56,6 +56,7 @@ func (m *MockFileItemRepository) UpsertFileItem(ctx context.Context, item *Docum
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	i := *item
+	i.EmbedStatus = "pending"
 	m.items[item.ProjectID+":"+item.ID] = &i
 	return nil
 }

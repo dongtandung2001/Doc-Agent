@@ -88,21 +88,23 @@ func (r *PostgresSectionRepository) GetSectionsByProjectID(ctx context.Context, 
 	return sections, rows.Err()
 }
 
-// UpsertFileItem creates or updates a document file item
+// UpsertFileItem creates or updates a document file item.
+// embed_status is always reset to 'pending' so the RAG pipeline picks it up.
 func (r *PostgresFileItemRepository) UpsertFileItem(ctx context.Context, item *DocumentFileItem) error {
 	query := `
 		INSERT INTO document_file_items (id, project_id, content, description, document_section_id, document_id, extra, is_embedded, title, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
 		ON CONFLICT (id) DO UPDATE SET
-			project_id = EXCLUDED.project_id,
-			content = EXCLUDED.content,
-			description = EXCLUDED.description,
+			project_id          = EXCLUDED.project_id,
+			content             = EXCLUDED.content,
+			description         = EXCLUDED.description,
 			document_section_id = EXCLUDED.document_section_id,
-			document_id = EXCLUDED.document_id,
-			extra = EXCLUDED.extra,
-			is_embedded = EXCLUDED.is_embedded,
-			title = EXCLUDED.title,
-			updated_at = NOW()
+			document_id         = EXCLUDED.document_id,
+			extra               = EXCLUDED.extra,
+			is_embedded         = EXCLUDED.is_embedded,
+			title               = EXCLUDED.title,
+			embed_status        = 'pending',
+			updated_at          = NOW()
 	`
 	_, err := r.pool.Exec(ctx, query,
 		item.ID,
@@ -124,7 +126,7 @@ var ErrNotFound = errors.New("document not found")
 // GetFileItemByID returns a file item by project ID and document ID
 func (r *PostgresFileItemRepository) GetFileItemByID(ctx context.Context, projectID, documentID string) (*DocumentFileItem, error) {
 	query := `
-		SELECT id, project_id, content, description, document_section_id, document_id, extra, is_embedded, title
+		SELECT id, project_id, content, description, document_section_id, document_id, extra, is_embedded, title, embed_status
 		FROM document_file_items
 		WHERE project_id = $1 AND document_id = $2
 	`
@@ -139,6 +141,7 @@ func (r *PostgresFileItemRepository) GetFileItemByID(ctx context.Context, projec
 		&item.Extra,
 		&item.IsEmbedded,
 		&item.Title,
+		&item.EmbedStatus,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

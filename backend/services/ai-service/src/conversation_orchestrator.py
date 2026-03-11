@@ -1,151 +1,82 @@
-
 # conversation_orchestrator.py
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import List, Dict, Optional
 
-if TYPE_CHECKING:
-    from openai.types.chat import ChatCompletion
+from langchain.chains.question_answering import load_qa_chain
+from langchain.prompts import PromptTemplate
 
-from src.llm_client import LLMClient
-from src.vector_store import VectorStoreManager
+from src.rag_pipeline import RAGPipeline
 from src.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-class ConversationOrchestrator:
-    def __init__(self):
-        self.llm_client = LLMClient()
-        self.vector_store = VectorStoreManager()
+_PROMPT_TEMPLATE = """
+Answer the question as detailed as possible using the provided context.
+If the answer is not in the provided context, say "I don't have enough context to answer this" \
+and answer from general knowledge if you can.
 
-    def is_code_related(self, messages: List[Dict[str, str]]) -> bool:
-        """Determine if the request is code-related."""
-        # Get the last user message
-        user_messages = [m for m in messages if m.get("role") == "user"]
-        if not user_messages:
-            return False
-
-        last_message = user_messages[-1].get("content", "").lower()
-
-        # Keywords that indicate code-related queries
-        code_keywords = [
-            "code", "function", "class", "method", "api",
-            "implementation", "bug", "error", "debug",
-            "codebase", "repository", "file", "module"
-        ]
-
-        return any(keyword in last_message for keyword in code_keywords)
-
-    def should_use_rag(
-            self,
-            messages: List[Dict[str, str]],
-            request_name: Optional[str] = None
-    ) -> bool:
-        """Determine if RAG should be used."""
-        # Use RAG if code-related or if not doc generation
-        is_doc_gen = request_name and "Doc Generating" in request_name
-        return self.is_code_related(messages) and not is_doc_gen
-
-    def build_rag_prompt(
-            self,
-            original_messages: List[Dict[str, str]],
-            retrieved_docs: List[Dict]
-    ) -> str:
-        """Build RAG-aware system prompt."""
-        if not retrieved_docs:
-            return """You are a helpful AI assistant for this project's documentation.
-No project documentation has been indexed yet, so answer from general knowledge.
-You can still help with coding concepts, APIs, and general questions. If the user asks about project-specific docs, suggest they add or index documentation for this project."""
-
-        # Format retrieved documentation
-        context = "\n\n".join([
-            f"[Document { i +1}]\n{doc['content']}"
-            for i, doc in enumerate(retrieved_docs)
-        ])
-
-        system_prompt = f"""You are a helpful AI assistant with access to documentation context.
-
-RELEVANT DOCUMENTATION:
+Context:
 {context}
 
-Use the above documentation to answer the user's question accurately. If the documentation doesn't contain relevant information, say so and provide your best answer based on general knowledge."""
+Question:
+{question}
 
-        return system_prompt
+Answer:
+"""
+
+
+class ConversationOrchestrator:
+    def __init__(self, rag_pipeline: RAGPipeline):
+        self.rag_pipeline = rag_pipeline
+        self._prompt = PromptTemplate(
+            template=_PROMPT_TEMPLATE,
+            input_variables=["context", "question"],
+        )
 
     def process_request(
             self,
             messages: List[Dict[str, str]],
             project_id: str,
-            request_name: Optional[str] = None
-    ) -> "ChatCompletion":
+            request_name: Optional[str] = None,
+    ) -> str:
         """
-        Process chat request with RAG orchestration.
-        Returns: Full OpenAI ChatCompletion response object
+        Process a chat request with RAG on every call.
+
+        Uses load_qa_chain (stuff type) — retrieves relevant docs from Chroma,
+        stuffs them into the prompt, then generates an answer via the LLM.
+
+        Returns the answer as a plain string.
         """
-        logger.info(f"Processing request for project: {project_id}")
+        user_messages = [m for m in messages if m.get("role") == "user"]
+        if not user_messages:
+            return "No question provided."
 
-        # Determine if RAG should be used
-        use_rag = self.should_use_rag(messages, request_name)
+        question = user_messages[-1].get("content", "")
+        logger.info(f"Processing request for project={project_id} question='{question[:80]}'")
 
-        retrieved_docs = []
-        if use_rag:
-            # Get last user message for retrieval
-            user_messages = [m for m in messages if m.get("role") == "user"]
-            if user_messages:
-                query = user_messages[-1].get("content", "")
-                retrieved_docs = self.vector_store.retrieve(query, project_id)
-                logger.info(f"Retrieved {len(retrieved_docs)} documents for RAG")
+        # Retrieve relevant chunks from the vector store.
+        # If the collection is empty (CreateRAG not yet called) or the search
+        # fails for any reason, fall back to empty docs so the chain still runs
+        # and answers from general knowledge instead of crashing.
+        docs = []
+        try:
+            store = self.rag_pipeline._get_store(project_id)
+            docs = store.similarity_search(question, k=5, filter={"project_id": project_id})
+        except Exception as e:
+            logger.warning(f"similarity_search failed (collection may be empty): {e}")
+        logger.info(f"Retrieved {len(docs)} docs for RAG")
 
-        # Build system prompt
-        system_prompt = self.build_rag_prompt(messages, retrieved_docs)
-
-        # Generate response - returns full ChatCompletion object
-        response = self.llm_client.generate_response(
-            messages,
-            system_prompt
+        # Build and run the QA chain (same pattern as load_qa_chain "stuff")
+        chain = load_qa_chain(
+            self.rag_pipeline.llm,
+            chain_type="stuff",
+            prompt=self._prompt,
         )
 
-        # Auto-embed if this is doc generation and no tools were executed
-        if request_name and "Doc Generating" in request_name:
-            # Check if tools were executed
-            tools_executed = False
-            if hasattr(response.choices[0].message, 'tool_calls'):
-                tools_executed = response.choices[0].message.tool_calls is not None
-            
-            if not tools_executed:
-                logger.info("Auto-embedding triggered for doc generation")
-                # Extract content for embedding
-                content = response.choices[0].message.content or ""
-                self.auto_embed_response(
-                    content,
-                    project_id,
-                    request_name
-                )
+        response = chain.invoke(
+            {"input_documents": docs, "question": question},
+            return_only_outputs=True,
+        )
 
-        return response
-
-    def auto_embed_response(
-            self,
-            content: str,
-            project_id: str,
-            request_name: str
-    ) -> bool:
-        """Automatically embed generated documentation."""
-        try:
-            # Generate document ID from request name
-            document_id = request_name.replace(" ", "_").replace("Doc_Generating_", "")
-
-            # Store embedding
-            success = self.vector_store.store_embedding(
-                project_id=project_id,
-                document_id=document_id,
-                content=content,
-                metadata={"request_name": request_name}
-            )
-
-            if success:
-                logger.info(f"Auto-embedded document: {document_id}")
-
-            return success
-
-        except Exception as e:
-            logger.error(f"Error in auto-embedding: {str(e)}")
-            return False
+        answer = response.get("output_text", "")
+        logger.info(f"Generated answer ({len(answer)} chars)")
+        return answer

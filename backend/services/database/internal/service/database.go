@@ -138,7 +138,7 @@ func (s *DatabaseService) StoreSection(
 
 	url := req.Url
 	if url == "" {
-		url = slugify(req.Title)
+		url = req.Id
 	}
 
 	var parentID *string

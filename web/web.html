@@ -238,7 +238,7 @@
         var div = document.createElement('div');
         div.className = depth > 0 ? 'ml-3 mt-1' : '';
         var link = document.createElement('a');
-        link.href = '#';
+        link.href = 'javascript:void(0)';
         link.dataset.documentId = url;
         link.className = 'flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg group ' +
             (isActive ? 'text-primary bg-primary-light/50 border-l-2 border-primary' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900');
@@ -301,6 +301,11 @@
 
     function selectAndLoadDocument(documentId) {
         selectedDocumentId = documentId;
+        // Persist selected doc in URL hash so F5/reload restores position
+        var newHash = '#doc=' + encodeURIComponent(documentId);
+        if (window.location.hash !== newHash) {
+            history.replaceState(null, '', newHash);
+        }
         // Update TOC active state
         tocNav.querySelectorAll('a[data-document-id]').forEach(function (a) {
             var active = a.dataset.documentId === documentId;
@@ -313,7 +318,7 @@
     }
 
     function loadSections() {
-        connectCall('GetDocumentSections', { projectId: projectId })
+        connectCall('GetDocumentSections', { projectId: "1" })
             .then(function (data) {
                 tocLoading.style.display = 'none';
                 sections = data.sections || [];
@@ -329,9 +334,10 @@
                 });
                 tocNav.innerHTML = '';
                 tocNav.appendChild(container);
-                // Default: load first section (first leaf or first section with url)
-                var first = firstSectionUrl(sections);
-                if (first) selectAndLoadDocument(first);
+                // Restore from URL hash on load (survives F5/reload), else default to first section
+                var restored = getDocFromHash();
+                var target = restored || firstSectionUrl(sections);
+                if (target) selectAndLoadDocument(target);
             })
             .catch(function (err) {
                 tocLoading.textContent = 'No documentation server or no sections for this project.';
@@ -486,7 +492,7 @@
             return;
         }
         docContent.innerHTML = '<div class="py-8 text-center text-slate-500">Loading…</div>';
-        connectCall('GetDocument', { projectId: projectId, documentId: documentId })
+        connectCall('GetDocument', { projectId: "1", documentId: documentId })
             .then(function (data) {
                 var errMsg = data.errorMsg || data.error_msg;
                 if (errMsg) {
@@ -592,6 +598,13 @@
     });
 
     // --- Init
+    // Restore selected doc from URL hash (e.g. #doc=section-url) to survive F5/reload
+    function getDocFromHash() {
+        var hash = window.location.hash;
+        var m = hash.match(/^#doc=(.+)$/);
+        return m ? decodeURIComponent(m[1]) : null;
+    }
+
     if (fileParam) {
         loadLocalFile(fileParam);
     } else {
