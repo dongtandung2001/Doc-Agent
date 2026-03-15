@@ -18,6 +18,13 @@ RUN go mod download
 WORKDIR /build
 COPY shared/ ./shared/
 
+# Generate shared proto Go code (gen/) so the shared module can be built
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest && \
+    go install connectrpc.com/connect/cmd/protoc-gen-connect-go@latest && \
+    go install github.com/bufbuild/buf/cmd/buf@latest && \
+    (cd /build/shared && buf generate)
+
 # Copy codebase source code
 COPY services/codebase/ ./services/codebase/
 
