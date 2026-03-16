@@ -12,6 +12,9 @@ service AIService {
   // Chat with AI assistant
   rpc Chat(ChatRequest) returns (ChatResponse);
 
+  // Trigger RAG embedding pipeline for a project
+  rpc CreateRAG(CreateRAGRequest) returns (CreateRAGResponse);
+
   // Health check
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
@@ -25,4 +28,15 @@ message ChatRequest {
 // Chat response
 message ChatResponse {
   string content = 1; // AI-generated response
+}
+
+// CreateRAG request
+message CreateRAGRequest {
+  string project_id = 1; // Project identifier to embed documents for
+}
+
+// CreateRAG response
+message CreateRAGResponse {
+  bool success = 1;   // Whether embedding succeeded
+  string message = 2; // Human-readable result or error message
 }

@@ -108,6 +108,21 @@ func (h *GatewayHandler) Chat(
 	return connect.NewResponse(result), nil
 }
 
+// CreateRAG proxies to AI Service to trigger RAG embedding pipeline
+func (h *GatewayHandler) CreateRAG(
+	ctx context.Context,
+	req *connect.Request[apiv1.CreateRAGRequest],
+) (*connect.Response[apiv1.CreateRAGResponse], error) {
+	if h.aiClient == nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("AI service not configured: set backends.ai.base_url in gateway config"))
+	}
+	result, err := h.aiClient.CreateRAG(ctx, req.Msg)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(result), nil
+}
+
 // HealthCheck checks health of all backend services
 func (h *GatewayHandler) HealthCheck(
 	ctx context.Context,

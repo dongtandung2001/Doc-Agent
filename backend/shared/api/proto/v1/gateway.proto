@@ -31,6 +31,9 @@ service GatewayService {
   // Chat API (HTTPS endpoint - proxies to AI Service)
   rpc Chat(ChatRequest) returns (ChatResponse);
 
+  // Trigger RAG embedding pipeline (HTTPS endpoint - proxies to AI Service)
+  rpc CreateRAG(CreateRAGRequest) returns (CreateRAGResponse);
+
   // Health check - checks all microservices
   rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
 }
