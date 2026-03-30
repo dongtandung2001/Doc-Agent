@@ -2,6 +2,7 @@ use eyre::Result;
 use reqwest::{Client, Response};
 use serde_json::{json, Value};
 use std::time::Duration;
+use tracing::debug;
 
 /// API client for chat
 pub struct ApiClient {
@@ -32,10 +33,7 @@ impl ApiClient {
         let endpoint = std::env::var("GATEWAY_ANALYSIS_ENDPOINT")
             .expect("GATEWAY_ANALYSIS_ENDPOINT environment variable not set");
 
-        eprintln!(
-            "[DEBUG] Gateway - Request body: {}",
-            serde_json::to_string_pretty(&request_body)?
-        );
+        debug!("Gateway - Request body: {}", serde_json::to_string_pretty(&request_body)?);
 
         let response = self
             .client
@@ -53,10 +51,7 @@ impl ApiClient {
         }
 
         let json: Value = response.json().await?;
-        eprintln!(
-            "[DEBUG] Gateway Response: {}",
-            serde_json::to_string_pretty(&json)?
-        );
+        debug!("Gateway Response: {}", serde_json::to_string_pretty(&json)?);
 
         Ok(json)
     }
@@ -76,10 +71,7 @@ impl ApiClient {
             "tool_choice": if tools.is_empty() { json!("none") } else { json!("auto") }
         });
 
-        eprintln!(
-            "[DEBUG] ApiClient - Request body: {}",
-            serde_json::to_string_pretty(&request_body)?
-        );
+        debug!("ApiClient - Request body: {}", serde_json::to_string_pretty(&request_body)?);
 
         let response = self
             .client
@@ -99,10 +91,7 @@ impl ApiClient {
 
         // Parse JSON response
         let json: Value = response.json().await?;
-        eprintln!(
-            "[DEBUG] API Response: {}",
-            serde_json::to_string_pretty(&json)?,
-        );
+        debug!("API Response: {}", serde_json::to_string_pretty(&json)?);
 
         Ok(json)
     }

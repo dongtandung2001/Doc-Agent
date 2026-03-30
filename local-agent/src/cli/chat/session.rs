@@ -3,7 +3,7 @@ use serde_json::json;
 use std::fmt::format;
 use std::path::PathBuf;
 use tokio::sync::broadcast;
-use tracing::error;
+use tracing::{debug, error};
 
 use super::args::ChatArgs;
 use super::cli::slash_commands;
@@ -42,19 +42,7 @@ impl ChatSession {
         // Get current working directory
         let root_dir = std::env::current_dir()?;
 
-        // Debug: print the loaded configuration
-        eprintln!("Debug - API Configuration:");
-        eprintln!("  URL: {}", args.api_url);
-        eprintln!(
-            "  API Key: {}***",
-            if args.api_key.len() > 10 {
-                &args.api_key[..10]
-            } else {
-                "EMPTY"
-            }
-        );
-        eprintln!("  Model: {}", args.model);
-        eprintln!("  Root Directory: {}", root_dir.display());
+        debug!(url = %args.api_url, model = %args.model, root_dir = %root_dir.display(), "API configuration loaded");
 
         // Set up Ctrl+C handler
         let (ctrlc_tx, ctrlc_rx) = broadcast::channel(4);
@@ -144,12 +132,12 @@ impl ChatSession {
             ChatState::PromptUser {
                 skip_printing_tools,
             } => {
-                eprintln!("[DEBUG] State: PromptUser");
+                debug!("State: PromptUser");
                 self.prompt_user(skip_printing_tools).await
             }
 
             ChatState::HandleInput { input } => {
-                eprintln!("[DEBUG] State: HandleInput");
+                debug!("State: HandleInput");
                 tokio::select! {
                     res = self.handle_input(input) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -160,7 +148,7 @@ impl ChatSession {
             }
 
             ChatState::HandleResponse { request } => {
-                eprintln!("[DEBUG] State: HandleResponse");
+                debug!("State: HandleResponse");
                 tokio::select! {
                     res = self.handle_response(request) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -171,12 +159,12 @@ impl ChatSession {
             }
 
             ChatState::ValidateTools { tools } => {
-                eprintln!("[DEBUG] State: ValidateTools");
+                debug!("State: ValidateTools");
                 self.validate_tools(tools).await
             }
 
             ChatState::ExecuteTools { tools } => {
-                eprintln!("[DEBUG] State: ExecuteTools");
+                debug!("State: ExecuteTools");
                 tokio::select! {
                     res = self.execute_tools(tools) => res,
                     Ok(_) = ctrl_c_stream.recv() => {
@@ -187,7 +175,7 @@ impl ChatSession {
             }
 
             ChatState::Exit => {
-                eprintln!("[DEBUG] State: Exit");
+                debug!("State: Exit");
                 return Ok(());
             }
         };
@@ -199,7 +187,6 @@ impl ChatSession {
             }
             Err(err) => {
                 error!(?err, "State transition error");
-                eprintln!("Error: {}", err);
                 self.inner = Some(ChatState::PromptUser {
                     skip_printing_tools: false,
                 });
@@ -277,10 +264,7 @@ impl ChatSession {
                     parsed.assistant_text,
                     parsed.all_tool_calls,
                 ));
-            eprintln!(
-                "[DEBUG] Total tools to execute: {}",
-                parsed.tools_to_execute.len()
-            );
+            debug!("Total tools to execute: {}", parsed.tools_to_execute.len());
             Ok(ChatState::ValidateTools {
                 tools: parsed.tools_to_execute,
             })
@@ -324,7 +308,7 @@ impl ChatSession {
         let results = self.tool_manager.execute_all(tools).await;
 
         println!("Tools executed.\n");
-        println!("Final result: {:?}", results);
+        debug!("Tool results: {:?}", results);
         // Add tool results to conversation
         for result in results {
             self.conversation.add(result);

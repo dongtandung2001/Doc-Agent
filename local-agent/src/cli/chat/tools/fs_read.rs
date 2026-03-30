@@ -51,6 +51,8 @@ impl Tool for FsReadTool {
     async fn invoke(&self, args: Value) -> Result<String> {
         let args: FsReadArgs = serde_json::from_value(args)?;
 
+        println!("  Reading {}", args.path);
+
         let metadata = fs::metadata(&args.path)
             .await
             .map_err(|e| eyre::eyre!("Cannot access '{}': {}", args.path, e))?;

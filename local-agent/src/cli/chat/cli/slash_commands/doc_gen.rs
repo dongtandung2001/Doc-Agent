@@ -2,6 +2,7 @@ use std::env;
 
 use crate::cli::chat::ChatArgs;
 use crate::cli::chat::ChatSession;
+use tracing::debug;
 
 use crate::cli::chat::tools;
 use crate::cli::chat::tools::Tool;
@@ -19,10 +20,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     let args = serde_json::json!({ "path": path });
     let res = scan_tool.invoke(args).await;
 
-    println!(
-        "Directory scan completed. Generating documents...\n{:?}",
-        res,
-    );
+    debug!("Directory scan result: {:?}", res);
 
     let dir = match res {
         Ok(d) => d,
@@ -204,7 +202,7 @@ Provide your final README.md content within <readme> tags. Include no explanatio
 
     let response = api_session.send_message(prompt).await.unwrap();
 
-    println!("Received response from API: {}", response);
+    debug!("Received response from API (length: {} chars)", response.len());
 
     response
 }
@@ -218,10 +216,7 @@ async fn start_grpc_server() -> Result<server::ServerHandle, Box<dyn std::error:
         .unwrap_or(50051);
 
     // 2. Spawn gRPC server
-    println!(
-        "Starting local gRPC server on {:?}:{:?}...",
-        grpc_host, grpc_port
-    );
+    debug!("Starting local gRPC server on {}:{}", grpc_host, grpc_port);
     let server_handle = server::spawn_server(&grpc_host, grpc_port).await;
     //  let server_addr = server_handle.unwrap().address();
 

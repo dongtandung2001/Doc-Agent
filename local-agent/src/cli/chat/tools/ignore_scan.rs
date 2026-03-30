@@ -3,6 +3,7 @@ use eyre::Result;
 use ignore::WalkBuilder;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use tracing::debug;
 
 use super::registry::Tool;
 
@@ -114,10 +115,7 @@ async fn scan_with_gitignore(path: &str, max_depth: Option<usize>) -> Result<Vec
     })
     .await?;
 
-    println!(
-        "Scanned directory with gitignore: {} entries",
-        entries.len()
-    );
+    debug!("Scanned directory with gitignore: {} entries", entries.len());
 
     Ok(entries)
 }

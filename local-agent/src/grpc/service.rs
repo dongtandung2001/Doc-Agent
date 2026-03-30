@@ -4,6 +4,7 @@ use crate::grpc::proto::{
     HealthCheckResponse, RequestFileContentRequest, RequestFileContentResponse,
 };
 use tonic::{Request, Response, Status};
+use tracing::debug;
 
 #[derive(Debug, Default)]
 pub struct LocalAgentServiceImpl;
@@ -18,7 +19,7 @@ impl LocalAgentService for LocalAgentServiceImpl {
         let arg = req.args;
         let file_read_results = handler::read_file_content(arg).await;
 
-        println!("Read file content results: {:?}", file_read_results);
+        debug!("Read file content results: {:?}", file_read_results);
 
         // Convert handler::FileReadResult to proto::FileReadResult
         let final_results: Vec<FileReadResult> = file_read_results
@@ -28,7 +29,7 @@ impl LocalAgentService for LocalAgentServiceImpl {
                 content: res.content.unwrap_or_default(),
             })
             .collect();
-        println!("Final results to return: {:?}", final_results);
+        debug!("Final results: {} files", final_results.len());
         Ok(Response::new(RequestFileContentResponse {
             results: final_results,
         }))
@@ -38,7 +39,7 @@ impl LocalAgentService for LocalAgentServiceImpl {
         &self,
         _request: Request<HealthCheckRequest>,
     ) -> Result<Response<HealthCheckResponse>, Status> {
-        println!("Health check received");
+        debug!("Health check received");
         Ok(Response::new(HealthCheckResponse { is_alive: true }))
     }
 }

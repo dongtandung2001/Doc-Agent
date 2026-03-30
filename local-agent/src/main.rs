@@ -8,17 +8,17 @@ use local_agent::grpc::server;
 
 fn main() -> Result<ExitCode> {
     // Load .env file if it exists (ignore if not found)
-    match dotenvy::dotenv() {
-        Ok(path) => eprintln!("Loaded .env from: {:?}", path),
-        Err(e) => eprintln!("Warning: Could not load .env file: {}", e),
-    }
+    dotenvy::dotenv().ok();
 
-    // Initialize logging
+    // Initialize logging — all output goes to a rolling log file, nothing to terminal
+    let file_appender = tracing_appender::rolling::daily("logs", "local-agent.log");
+    let (non_blocking, _guard) = tracing_appender::non_blocking(file_appender);
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
-                .add_directive(tracing::Level::INFO.into()),
+                .add_directive(tracing::Level::DEBUG.into()),
         )
+        .with_writer(non_blocking)
         .init();
 
     // Parse CLI arguments
@@ -39,7 +39,7 @@ fn main() -> Result<ExitCode> {
 
         // Always cleanup gRPC server before exiting
         if let Err(e) = server::shutdown_global_server().await {
-            eprintln!("Error shutting down gRPC server: {}", e);
+            tracing::error!("Error shutting down gRPC server: {}", e);
         }
 
         exit_result
@@ -48,7 +48,7 @@ fn main() -> Result<ExitCode> {
     match result {
         Ok(exit_code) => Ok(exit_code),
         Err(err) => {
-            eprintln!("{} {err}", "error:".bold().red());
+            eprintln!("{} {err}", "error:".bold().red()); // user-facing fatal error
             Ok(ExitCode::FAILURE)
         }
     }

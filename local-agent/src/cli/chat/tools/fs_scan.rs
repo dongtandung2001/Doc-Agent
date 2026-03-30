@@ -3,6 +3,7 @@ use eyre::Result;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use tokio::fs;
+use tracing::debug;
 
 use super::registry::Tool;
 
@@ -73,7 +74,7 @@ fn scan_dir<'a>(
             return Ok(());
         }
 
-        println!("scan max_depth: {}", max_depth);
+        debug!("scan max_depth: {}", max_depth);
 
         let mut entries = fs::read_dir(path).await?;
         let indent = "  ".repeat(depth);
@@ -91,7 +92,7 @@ fn scan_dir<'a>(
             }
         }
 
-        println!("Scanned directory: {:?}", result);
+        debug!("Scanned directory: {} entries", result.len());
 
         Ok(())
     })

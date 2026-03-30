@@ -2,6 +2,7 @@ mod doc_gen;
 mod quit;
 
 use crate::api::ApiClient;
+use tracing::debug;
 
 use super::super::ChatState;
 use std::future::Future;
@@ -32,7 +33,7 @@ pub fn parse_and_execute<'a>(
             None => (body, None),                // No space, the whole body is the verb
         };
 
-        println!("Command: {}, Args: {:?}, Root: {}", cmd, args, root_dir);
+        debug!("Command: {}, Args: {:?}, Root: {}", cmd, args, root_dir);
 
         match cmd {
             "quit" | "exit" | "q" => Some(quit::execute()),
@@ -40,7 +41,7 @@ pub fn parse_and_execute<'a>(
             "init" | "start" | "doc_generation" => {
                 // If the user provided args, use them; otherwise use root_dir
                 let path = args.unwrap_or(root_dir);
-                println!("Using path: {}", path);
+                debug!("Using path: {}", path);
                 Some(doc_gen::execute(path, api_client).await)
             }
 
