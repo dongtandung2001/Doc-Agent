@@ -32,7 +32,7 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
         }
     };
 
-    let _readme = generate_or_update_readme(&dir).await;
+    let _readme = generate_or_update_readme(&dir, None).await;
     println!("README generation completed.");
     // Check if server is already running
     if server::is_server_running().await {
@@ -100,20 +100,45 @@ pub async fn execute(path: &str, api_client: &ApiClient) -> ChatState {
     //TODO: Should start the codebase analysis process here after generating README
 }
 
-async fn generate_or_update_readme(dir: &str) -> String {
+pub async fn generate_or_update_readme(dir: &str, existing_readme: Option<&str>) -> String {
+    let task_description = if existing_readme.is_some() {
+        "improving the existing README.md document"
+    } else {
+        "creating a README.md document"
+    };
+
+    let existing_readme_section = match existing_readme {
+        Some(content) => format!(
+            "\nThe repository already has a README. Your task is to improve it — preserve any accurate \
+information, fix gaps, update stale sections, and enhance clarity and structure.\n\
+\n<existing_readme>\n{}\n</existing_readme>\n",
+            content
+        ),
+        None => String::new(),
+    };
+
     let prompt = format!(
         "
-You are a professional code analysis expert tasked with creating a README.md document for a GitHub repository. Your goal is to analyze the content of the repository based on the provided catalogue structure and generate a high-quality README that highlights the project's key features and follows the style of advanced open-source projects on GitHub.
+You are a professional code analysis expert tasked with {task_description} for a GitHub repository. \
+Your goal is to analyze the content of the repository based on the provided catalogue structure and \
+produce a high-quality README that highlights the project's key features and follows the style of \
+advanced open-source projects on GitHub.
 
 Here is the catalogue structure of the repository:
 
 <catalogue>
-{}
+{dir}
 </catalogue>
+{existing_readme_section}
+The catalogue already contains the full directory and file structure of the repository. You must NOT \
+perform any new scans, searches, or file enumerations to rediscover structure. Only use the READ_FILE \
+function to read the contents of specific files that are already listed in the catalogue, and only \
+when necessary to extract information for the README.
 
-The catalogue already contains the full directory and file structure of the repository. You must NOT perform any new scans, searches, or file enumerations to rediscover structure. Only use the READ_FILE function to read the contents of specific files that are already listed in the catalogue, and only when necessary to extract information for the README.
-
-To collect information about the files in the repository, you can use the READ_FILE function. This function accepts the file path as a parameter and returns the content of the file. Use this function to read the contents of specific files mentioned in the directory. Do NOT perform any additional scans or searches beyond the provided catalogue.
+To collect information about the files in the repository, you can use the READ_FILE function. This \
+function accepts the file path as a parameter and returns the content of the file. Use this function \
+to read the contents of specific files mentioned in the directory. Do NOT perform any additional \
+scans or searches beyond the provided catalogue.
 
 Follow these steps to generate the README:
 
@@ -194,7 +219,6 @@ Important Guidelines:
 Provide your final README.md content within <readme> tags. Include no explanations or comments outside of these tags.
 
 ",
-        dir
     );
     let chat_args = ChatArgs::default();
 

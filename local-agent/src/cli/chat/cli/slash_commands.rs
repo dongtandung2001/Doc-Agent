@@ -1,5 +1,6 @@
 mod doc_gen;
 mod quit;
+mod readme;
 
 use crate::api::ApiClient;
 use tracing::debug;
@@ -43,6 +44,12 @@ pub fn parse_and_execute<'a>(
                 let path = args.unwrap_or(root_dir);
                 debug!("Using path: {}", path);
                 Some(doc_gen::execute(path, api_client).await)
+            }
+
+            "readme" => {
+                let path = args.unwrap_or(root_dir);
+                debug!("Using path: {}", path);
+                Some(readme::execute(path).await)
             }
 
             _ => None,
