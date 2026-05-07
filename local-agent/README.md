@@ -8,7 +8,7 @@ Local Agent is an interactive command-line chat agent that connects to OpenAI-co
 
 ## Features
 
-- **🤖 AI-Powered Interactive Chat** — Full-duplex chat session with any OpenAI-compatible LLM API (supports streaming-disabled mode for reliability). Uses a robust state machine architecture (`PromptUser → HandleInput → HandleResponse → ValidateTools → ExecuteTools → ...`) modeled after the Amazon Q CLI.
+- **🤖 AI-Powered Interactive Chat** — Full-duplex chat session with any OpenAI-compatible LLM API (supports streaming-disabled mode for reliability).
 
 - **🛠️ Extensible Tool System** — Three built-in file system tools exposed to the LLM via OpenAI function calling:
   - **`fs_read`** — Read file contents with optional line range selection.
