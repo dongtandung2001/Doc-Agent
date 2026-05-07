@@ -178,7 +178,7 @@ func buildSectionTree(sections []*repository.DocumentSection, parentID *string) 
 			section := &apiv1.DocumentSection{
 				Title:       s.Name,
 				Description: s.Description,
-				Url:         s.URL,
+				Url:         s.DocumentID,
 				Children:    buildSectionTree(sections, ptr(s.ID)),
 			}
 			result = append(result, section)

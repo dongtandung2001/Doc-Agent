@@ -76,6 +76,7 @@
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/protobuf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
 </head>
 
@@ -128,9 +129,6 @@
         </aside>
         <main class="flex-1 bg-white overflow-y-auto relative w-full">
             <div class="max-w-4xl mx-auto px-8 py-10 lg:px-12 lg:py-12">
-                <nav class="flex items-center gap-2 text-sm text-slate-500 mb-6" id="breadcrumb">
-                    <span class="font-medium text-slate-900">Documentation</span>
-                </nav>
                 <div id="doc-content">
                     <div class="py-12 text-center text-slate-500">Loading…</div>
                 </div>
@@ -222,7 +220,20 @@
 
     // Initialize Mermaid (for ```mermaid``` code blocks in markdown)
     if (window.mermaid) {
-        mermaid.initialize({ startOnLoad: false, theme: 'default' });
+        mermaid.initialize({ startOnLoad: false, theme: 'default', suppressErrorRendering: true });
+    }
+
+    function renderMermaidSafe(div) {
+        var text = div.textContent;
+        var id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
+        mermaid.render(id, text).then(function(result) {
+            div.innerHTML = result.svg;
+        }).catch(function() {
+            var pre = document.createElement('pre');
+            pre.className = 'text-sm text-slate-600 bg-slate-50 p-4 rounded-lg overflow-x-auto border border-slate-200 font-mono';
+            pre.textContent = text;
+            div.replaceWith(pre);
+        });
     }
 
     function connectCall(method, body) {
@@ -312,15 +323,7 @@
             }
         });
 
-        try {
-            if (typeof mermaid.run === 'function') {
-                mermaid.run({ nodes: root.querySelectorAll('.mermaid') });
-            } else if (typeof mermaid.init === 'function') {
-                mermaid.init(undefined, root.querySelectorAll('.mermaid'));
-            }
-        } catch (e) {
-            console.error('Mermaid render error', e);
-        }
+        root.querySelectorAll('.mermaid').forEach(renderMermaidSafe);
     }
 
     function selectAndLoadDocument(documentId) {
@@ -344,6 +347,7 @@
     function loadSections() {
         connectCall('GetDocumentSections', { projectId: "1" })
             .then(function (data) {
+                console.log('GetDocumentSections', data);
                 tocLoading.style.display = 'none';
                 sections = data.sections || [];
                 if (sections.length === 0) {
@@ -494,10 +498,6 @@
         }
         var mermaidBlocks = prose.querySelectorAll('pre code.language-mermaid');
         if (typeof mermaid !== 'undefined' && mermaidBlocks.length > 0) {
-            if (!window._mermaidInited) {
-                mermaid.initialize({ startOnLoad: false });
-                window._mermaidInited = true;
-            }
             mermaidBlocks.forEach(function (code) {
                 var pre = code.closest('pre');
                 var div = document.createElement('div');
@@ -505,7 +505,7 @@
                 div.textContent = code.textContent;
                 pre.parentNode.replaceChild(div, pre);
             });
-            mermaid.run({ nodes: prose.querySelectorAll('.mermaid') }).catch(function (e) { console.warn('Mermaid:', e); });
+            prose.querySelectorAll('.mermaid').forEach(renderMermaidSafe);
         }
     }
 
@@ -533,11 +533,6 @@
 
                 // After markdown is rendered, upgrade any ```mermaid``` blocks to diagrams
                 renderMermaid(docContent);
-                breadcrumb.textContent = '';
-                var span = document.createElement('span');
-                span.className = 'font-medium text-slate-900';
-                span.textContent = documentId || 'Document';
-                breadcrumb.appendChild(span);
             })
             .catch(function (err) {
                 docContent.innerHTML = '<div class="p-4 rounded-lg bg-red-50 text-red-700 text-sm">Failed to load document: ' + escapeHtml(err.message || String(err)) + '</div>';

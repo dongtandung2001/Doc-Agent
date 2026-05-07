@@ -294,7 +294,9 @@ impl ChatSession {
                     });
                 }
             } else {
-                return Ok(ChatState::Exit);
+                return Ok(ChatState::PromptUser {
+                    skip_printing_tools: false,
+                });
             }
         }
 
