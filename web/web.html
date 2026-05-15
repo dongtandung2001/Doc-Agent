@@ -72,9 +72,35 @@
         }
         .typing-dot:nth-child(2) { animation-delay: 0.2s; }
         .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+        /* Compact prose inside chat bubbles */
+        #chat-messages .prose { font-size: 0.875rem; line-height: 1.6; }
+        #chat-messages .prose h1, #chat-messages .prose h2,
+        #chat-messages .prose h3, #chat-messages .prose h4 {
+            margin-top: 0.75em; margin-bottom: 0.25em; font-size: 1em; font-weight: 700;
+        }
+        #chat-messages .prose p { margin-top: 0.4em; margin-bottom: 0.4em; }
+        #chat-messages .prose ul, #chat-messages .prose ol { margin-top: 0.4em; margin-bottom: 0.4em; padding-left: 1.25em; }
+        #chat-messages .prose li { margin-top: 0.1em; margin-bottom: 0.1em; }
+        #chat-messages .prose pre {
+            background: #0d1117; border: 1px solid #30363d; border-radius: 0.375rem;
+            padding: 0.75rem 1rem; overflow-x: auto; margin: 0.5em 0; font-size: 0.8rem;
+            color: #e6edf3;
+        }
+        #chat-messages .prose pre code {
+            background: transparent; color: inherit; padding: 0; font-size: inherit;
+        }
+        #chat-messages .prose code:not(pre code) {
+            background: #f1f5f9; border-radius: 0.25rem; padding: 0.1em 0.35em;
+            font-size: 0.8rem; color: #0f172a;
+        }
+        #chat-messages .prose hr { margin: 0.75em 0; border-color: #e2e8f0; }
+        #chat-messages .prose blockquote {
+            border-left: 3px solid #cbd5e1; padding-left: 0.75em; color: #64748b; margin: 0.5em 0;
+        }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github.min.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/styles/github-dark.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/highlight.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.11.1/languages/protobuf.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
@@ -223,8 +249,20 @@
         mermaid.initialize({ startOnLoad: false, theme: 'default', suppressErrorRendering: true });
     }
 
+    function preprocessMermaidText(text) {
+        // Fix \n escape sequences inside node labels → <br/> (mermaid HTML output)
+        // Auto-quote labels that contain | (edge-label delimiter) or start with /
+        // (mermaid parses [/text/] as a parallelogram shape — unmatched / causes parse error)
+        return text.replace(/\[([^\]]+)\]/g, function(match, label) {
+            if (/^"[^"]*"$/.test(label.trim())) return match; // already quoted
+            var fixed = label.replace(/\\n/g, '<br/>');
+            if (fixed.includes('|') || /^\//.test(fixed.trim())) fixed = '"' + fixed + '"';
+            return '[' + fixed + ']';
+        });
+    }
+
     function renderMermaidSafe(div) {
-        var text = div.textContent;
+        var text = preprocessMermaidText(div.textContent);
         var id = 'mermaid-' + Math.random().toString(36).slice(2, 10);
         mermaid.render(id, text).then(function(result) {
             div.innerHTML = result.svg;
@@ -565,7 +603,22 @@
         label.textContent = isUser ? 'You' : 'Assistant';
         var bubble = document.createElement('div');
         bubble.className = (isUser ? 'bg-primary text-white' : 'bg-white border border-slate-200') + ' p-3 rounded-2xl shadow-sm text-sm leading-relaxed ' + (isUser ? 'rounded-tr-none' : 'rounded-tl-none');
-        bubble.innerHTML = typeof content === 'string' ? escapeHtml(content).replace(/\n/g, '<br>') : content;
+        if (isUser) {
+            bubble.innerHTML = typeof content === 'string' ? escapeHtml(content).replace(/\n/g, '<br>') : content;
+        } else {
+            bubble.classList.add('prose', 'prose-slate', 'prose-sm', 'max-w-none');
+            if (typeof marked !== 'undefined' && typeof content === 'string') {
+                bubble.innerHTML = marked.parse(content);
+                if (typeof hljs !== 'undefined') {
+                    bubble.querySelectorAll('pre code:not(.language-mermaid)').forEach(function (block) {
+                        hljs.highlightElement(block);
+                    });
+                }
+                renderMermaid(bubble);
+            } else {
+                bubble.innerHTML = typeof content === 'string' ? escapeHtml(content).replace(/\n/g, '<br>') : content;
+            }
+        }
         col.appendChild(label);
         col.appendChild(bubble);
         wrap.appendChild(avatar);

@@ -122,7 +122,7 @@ services:
       # gRPC
       - GRPC_PORT=50051
       # LLM
-      - OPENAI_API_KEY=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
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - LLM_MODEL=${LLM_MODEL:-gpt-4o-mini}
       - LLM_TEMPERATURE=${LLM_TEMPERATURE:-0.7}
       - LLM_MAX_TOKENS=${LLM_MAX_TOKENS:-2000}
