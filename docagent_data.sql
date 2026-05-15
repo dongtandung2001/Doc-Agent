@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict MwvTwa5co4fz6jzIsTdDPVQOTXkUaocUPkeei8J66DupQBW17g54LyXxBQAHQrE
+\restrict N0wIrXDkv4CWy9vOCSwKMQ0ciraUDDETEqY5QtF9YaYBiN5pJFMgxurKVRWj0LA
 
 -- Dumped from database version 15.17
 -- Dumped by pg_dump version 15.17
@@ -117,17 +117,8 @@ Docker Compose Quick Start_20260515_013139	1	# Docker Compose Setup Guide — Do
 
 
 --
--- Data for Name: schema_migrations; Type: TABLE DATA; Schema: public; Owner: user
---
-
-COPY public.schema_migrations (version, dirty) FROM stdin;
-2	f
-\.
-
-
---
 -- PostgreSQL database dump complete
 --
 
-\unrestrict MwvTwa5co4fz6jzIsTdDPVQOTXkUaocUPkeei8J66DupQBW17g54LyXxBQAHQrE
+\unrestrict N0wIrXDkv4CWy9vOCSwKMQ0ciraUDDETEqY5QtF9YaYBiN5pJFMgxurKVRWj0LA
 
