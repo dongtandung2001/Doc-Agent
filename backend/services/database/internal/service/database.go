@@ -102,7 +102,7 @@ func (s *DatabaseService) StoreDocument(
 		ProjectID:   projectID,
 		Name:        req.Title,
 		Description: req.Description,
-		URL:         slugify(req.Title),
+		URL:         sectionID,
 		Order:       0,
 	}
 	if err := s.sectionRepo.UpsertSection(ctx, section); err != nil {
@@ -147,13 +147,14 @@ func (s *DatabaseService) StoreSection(
 	}
 
 	section := &repository.DocumentSection{
-		ID:        req.Id,
-		ProjectID: req.ProjectId,
-		Name:      req.Title,
-		Prompt:    req.Prompt,
-		URL:       url,
-		Order:     int(req.Order),
-		ParentID:  parentID,
+		ID:         req.Id,
+		ProjectID:  req.ProjectId,
+		Name:       req.Title,
+		DocumentID: req.Id,
+		Prompt:     req.Prompt,
+		URL:        url,
+		Order:      int(req.Order),
+		ParentID:   parentID,
 	}
 	if err := s.sectionRepo.UpsertSection(ctx, section); err != nil {
 		return &apiv1.StoreSectionResponse{Success: false}, err
@@ -178,7 +179,7 @@ func buildSectionTree(sections []*repository.DocumentSection, parentID *string) 
 			section := &apiv1.DocumentSection{
 				Title:       s.Name,
 				Description: s.Description,
-				Url:         s.DocumentID,
+				Url:         s.ID,
 				Children:    buildSectionTree(sections, ptr(s.ID)),
 			}
 			result = append(result, section)
